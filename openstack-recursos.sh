@@ -34,7 +34,7 @@ PRIV_GATEWAY_IP="192.168.100.1"
 
 ROUTER_PRIV="router_private_01"
 
-# Usar o no red externa (se puede poner a 0 por menú)
+# Usar o no red externa
 USE_EXTERNAL_NET=1   # 1 = usar red externa, 0 = sin red externa
 
 # Seguridad
@@ -80,28 +80,13 @@ for flavor in "${!FLAVORS_DEF[@]}"; do
   fi
 done
 
-# ==============================================
+# ===========
 # IMÁGENES
-# ==============================================
-echo "[*] Selecciona qué imágenes deseas comprobar/crear:"
-echo "  1) ubuntu-22.04"
-echo "  2) debian-12"
-echo "  3) kali-linux"
-echo "  4) ubuntu-22.04 + debian-12"
-echo "  5) Todas"
-echo "  6) Ninguna"
-read -rp "Elige opción [1-6]: " IMG_OPTION
+# ===========
+echo "[*] Comprobando y creando imágenes (Ubuntu + Debian + Kali)..."
 
-IMG_LIST=()
-case "$IMG_OPTION" in
-  1) IMG_LIST=("ubuntu-22.04") ;;
-  2) IMG_LIST=("debian-12") ;;
-  3) IMG_LIST=("kali-linux") ;;
-  4) IMG_LIST=("ubuntu-22.04" "debian-12") ;;
-  5) IMG_LIST=("ubuntu-22.04" "debian-12" "kali-linux") ;;
-  6) IMG_LIST=() ;;
-  *) die "Opción inválida" ;;
-esac
+# Equivalente a la opción 5 del menú
+IMG_LIST=("ubuntu-22.04" "debian-12" "kali-linux")
 
 for img_name in "${IMG_LIST[@]}"; do
   if openstack image show "$img_name" &>/dev/null; then
@@ -119,6 +104,7 @@ for img_name in "${IMG_LIST[@]}"; do
       fi
       IMG_FILE="$UBUNTU_IMG"
       ;;
+
     "debian-12")
       if [ ! -f "$DEBIAN_IMG" ]; then
         echo "[+] Descargando Debian 12..."
@@ -128,6 +114,7 @@ for img_name in "${IMG_LIST[@]}"; do
       fi
       IMG_FILE="$DEBIAN_IMG"
       ;;
+
     "kali-linux")
       if [ ! -f "$KALI_IMG_QCOW2" ]; then
         echo "[+] Descargando Kali Linux 2025.2..."
@@ -138,17 +125,14 @@ for img_name in "${IMG_LIST[@]}"; do
         echo "[+] Extrayendo disk.raw..."
         run_or_die tar -xvf kali-linux-2025.2-cloud-genericcloud-amd64.tar.xz
 
-        # --- NUEVA SECCIÓN: Verificación de qemu-img ---
         if ! command -v qemu-img &>/dev/null; then
-          echo "[!] 'qemu-img' no está instalado. Es necesario para convertir la imagen a QCOW2."
-          echo "[*] Instalando paquete 'qemu-utils'..."
+          echo "[!] 'qemu-img' no está instalado. Instalando..."
           if [ "$(id -u)" -ne 0 ]; then
             sudo apt update && sudo apt install -y qemu-utils
           else
             apt update && apt install -y qemu-utils
           fi
         fi
-        # ------------------------------------------------
 
         echo "[+] Convirtiendo disk.raw a QCOW2..."
         run_or_die qemu-img convert -f raw -O qcow2 "$KALI_IMG_RAW" "$KALI_IMG_QCOW2"
@@ -182,51 +166,21 @@ else
     NETWORK_EXT_ID=$(openstack network show "$NETWORK_EXT_NAME" -f value -c id)
     echo "[✔] Red externa creada: $NETWORK_EXT_NAME"
   else
-    echo "[!] No se ha podido crear $NETWORK_EXT_NAME (posible 409 / physnet en uso)."
-    echo "[*] Buscando una red externa ya existente para reutilizar..."
+    echo "[!] No se pudo crear la red externa (409 o physnet ocupado)."
     EXISTING_EXT_NETS=$(find_existing_external_net)
 
     if [ -z "$EXISTING_EXT_NETS" ]; then
-      echo
-      cat /tmp/net_create.log
-      echo "[!] No hay redes externas disponibles."
-      read -rp "¿Quieres continuar SIN red externa? [s/N]: " CONT_NO_EXT
-      if [[ "$CONT_NO_EXT" =~ ^[sS]$ ]]; then
-        USE_EXTERNAL_NET=0
-        NETWORK_EXT_ID=""
-        echo "[!] Continuando sin red externa."
-      else
-        die "No hay redes externas disponibles. Revisa la configuración de Neutron."
-      fi
+      USE_EXTERNAL_NET=0
+      NETWORK_EXT_ID=""
+      echo "[!] No hay redes externas disponibles. Continuando sin red externa."
     else
-      echo "[*] Redes externas disponibles:"
-      i=1
-      declare -a EXT_NET_CHOICES
-      while read -r n; do
-        [[ -z "$n" ]] && continue
-        echo "  $i) $n"
-        EXT_NET_CHOICES[$i]="$n"
-        ((i++))
-      done <<< "$EXISTING_EXT_NETS"
-
-      echo "  0) Ninguna (continuar sin red externa)"
-      read -rp "Selecciona red externa a usar [0-$((i-1))]: " OPT
-
-      if [ "$OPT" = "0" ]; then
-        USE_EXTERNAL_NET=0
-        NETWORK_EXT_ID=""
-        echo "[!] No se usará ninguna red externa. Sólo se configurarán redes privadas."
-      else
-        NETWORK_EXT_NAME="${EXT_NET_CHOICES[$OPT]}"
-        [ -z "$NETWORK_EXT_NAME" ] && die "Selección inválida."
-        NETWORK_EXT_ID=$(openstack network show "$NETWORK_EXT_NAME" -f value -c id)
-        echo "[✔] Usando red externa existente: $NETWORK_EXT_NAME"
-      fi
+      NETWORK_EXT_NAME=$(echo "$EXISTING_EXT_NETS" | head -n1)
+      NETWORK_EXT_ID=$(openstack network show "$NETWORK_EXT_NAME" -f value -c id)
+      echo "[✔] Usando red externa existente: $NETWORK_EXT_NAME"
     fi
   fi
 fi
 
-# Subred externa (solo si usamos red externa)
 if [ "$USE_EXTERNAL_NET" -eq 1 ]; then
   if openstack subnet show "$SUBNET_EXT_NAME" &>/dev/null; then
     echo "[✔] Subred externa existente: $SUBNET_EXT_NAME"
@@ -239,7 +193,7 @@ if [ "$USE_EXTERNAL_NET" -eq 1 ]; then
       --dns-nameserver 8.8.8.8
   fi
 else
-  echo "[!] Saltando creación de subred externa (sin red externa)."
+  echo "[!] Saltando creación de subred externa."
 fi
 
 # ==============================================
@@ -272,17 +226,13 @@ else
   run_or_die openstack router create "$ROUTER_PRIV"
 fi
 
-echo "[*] Asegurando gateway externo e interfaz interna del router..."
-# Gateway externo (solo si hay red externa)
+echo "[*] Configurando gateway e interfaz del router..."
 if [ "$USE_EXTERNAL_NET" -eq 1 ]; then
   run_or_die openstack router set "$ROUTER_PRIV" --external-gateway "$NETWORK_EXT_ID"
-else
-  echo "[!] No se configurará gateway externo en el router (sin red externa)."
 fi
 
-# Interfaz con la subred privada (si ya existe, Neutron se quejará pero no rompemos nada)
 openstack router add subnet "$ROUTER_PRIV" "$SUBNET_PRIV" 2>/dev/null || \
-  echo "[!] La interfaz del router ya estaba añadida (OK)."
+  echo "[!] La interfaz ya estaba añadida."
 
 # ==============================================
 # SECURITY GROUP
@@ -290,51 +240,31 @@ openstack router add subnet "$ROUTER_PRIV" "$SUBNET_PRIV" 2>/dev/null || \
 echo "[*] Comprobando grupo de seguridad..."
 
 if openstack security group show "$SEC_GROUP" &>/dev/null; then
-  echo "[✔] Security group existente: $SEC_GROUP"
+  echo "[✔] Grupo existente: $SEC_GROUP"
 else
   echo "[+] Creando security group $SEC_GROUP..."
   run_or_die openstack security group create "$SEC_GROUP"
 fi
 
-echo "[*] Asegurando reglas de seguridad básicas..."
+echo "[*] Configurando reglas de seguridad..."
 
 for port in "${RULES_TCP[@]}"; do
-  if openstack security group rule list "$SEC_GROUP" -f value \
+  if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port tcp$"; then
-    echo "[!] La regla TCP $port ya existe (OK)"
-    continue
-  fi
-  if openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" >/dev/null 2>&1; then
-    echo "[✔] Regla TCP $port añadida al grupo $SEC_GROUP"
-  else
-    echo "[!] No se pudo crear regla TCP $port (puede existir)"
+    openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" &>/dev/null
   fi
 done
 
 for port in "${RULES_UDP[@]}"; do
-  if openstack security group rule list "$SEC_GROUP" -f value \
+  if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port udp$"; then
-    echo "[!] La regla UDP $port ya existe (OK)"
-    continue
-  fi
-  if openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" >/dev/null 2>&1; then
-    echo "[✔] Regla UDP $port añadida al grupo $SEC_GROUP"
-  else
-    echo "[!] No se pudo crear regla UDP $port (puede existir)"
+    openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" &>/dev/null
   fi
 done
 
-# ICMP
 if ! openstack security group rule list "$SEC_GROUP" -f value -c Protocol | grep -q "^icmp$"; then
-  if openstack security group rule create --proto icmp "$SEC_GROUP" >/dev/null 2>&1; then
-    echo "[✔] Regla ICMP añadida al grupo $SEC_GROUP"
-  else
-    echo "[!] No se pudo crear regla ICMP (puede existir)"
-  fi
-else
-  echo "[!] La regla ICMP ya existe (OK)"
+  openstack security group rule create --proto icmp "$SEC_GROUP" &>/dev/null
 fi
-
 
 # ==============================================
 # KEYPAIR
@@ -342,59 +272,19 @@ fi
 echo "[*] Comprobando keypair..."
 
 if openstack keypair show "$KEYPAIR" &>/dev/null; then
-    echo "[✔] Keypair existente en OpenStack: $KEYPAIR"
-
-    # Comprobar claves locales
-    PRIV_LOCAL="./${KEYPAIR}.pem"
-    PUB_LOCAL="./${KEYPAIR}.pem.pub"
-    PRIV_SSH="$HOME/.ssh/${KEYPAIR}.pem"
-    PUB_SSH="$HOME/.ssh/${KEYPAIR}.pem.pub"
-
-    PRIV_FOUND=""
-    PUB_FOUND=""
-
-    # Buscar clave privada
-    if [ -f "$PRIV_LOCAL" ]; then
-        PRIV_FOUND="$PRIV_LOCAL"
-    elif [ -f "$PRIV_SSH" ]; then
-        PRIV_FOUND="$PRIV_SSH"
-    fi
-
-    # Buscar clave pública
-    if [ -f "$PUB_LOCAL" ]; then
-        PUB_FOUND="$PUB_LOCAL"
-    elif [ -f "$PUB_SSH" ]; then
-        PUB_FOUND="$PUB_SSH"
-    fi
-
-    # Resultado
-    if [ -n "$PRIV_FOUND" ] && [ -n "$PUB_FOUND" ]; then
-        echo "[✔] Se ha encontrado el PAR de claves (privada + pública):"
-        echo "    - Privada: $PRIV_FOUND"
-        echo "    - Pública: $PUB_FOUND"
-    else
-        echo "[!] El keypair existe en OpenStack pero NO se encuentran ambas claves localmente."
-        echo "    Buscado en:"
-        echo "       $(pwd)/${KEYPAIR}.pem"
-        echo "       $HOME/.ssh/${KEYPAIR}.pem"
-    fi
-
+    echo "[✔] Keypair existente: $KEYPAIR"
 else
-    echo "[+] Generando par de claves $KEYPAIR..."
+    echo "[+] Creando nuevo par de claves..."
     run_or_die ssh-keygen -t rsa -f "$KEYPAIR_PRIV_FILE" -N ""
     run_or_die openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR"
     chmod 400 "$KEYPAIR_PRIV_FILE"
-
-    echo "[✔] Par de claves generado:"
-    echo "    - Privada: $KEYPAIR_PRIV_FILE"
-    echo "    - Pública: $KEYPAIR_PUB_FILE"
 fi
 
 # ==============================================
 # CLOUD-INIT PASSWORD FILE
 # ==============================================
 if [ ! -f "$PASS_FILE" ]; then
-  echo "[+] Creando $PASS_FILE por defecto..."
+  echo "[+] Creando fichero cloud-init por defecto..."
   cat > "$PASS_FILE" << EOF
 #cloud-config
 password: nics2025!
@@ -414,4 +304,3 @@ echo "      --security-group $SEC_GROUP \\"
 echo "      --key-name $KEYPAIR \\"
 echo "      --user-data $PASS_FILE \\"
 echo "      mi_instancia_01"
-

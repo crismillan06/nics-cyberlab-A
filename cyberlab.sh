@@ -17,8 +17,9 @@ function timer() {
 # Marca de inicio general
 overall_start=$(date +%s)
 
-echo "🚀 Iniciando despliegue de CyberRange..."
-echo "==========================================="
+echo "=============================================="
+echo "🚀 Iniciando despliegue de CyberLab de NICS..."
+echo "=============================================="
 sleep 1
 
 # Paso 1: Instalación de OpenStack
@@ -42,6 +43,10 @@ fi
 echo "Entorno activado en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
+
+echo "Configurado estructura de redes..."
+sudo bash uplinkbridge.sh
+sleep 1
 
 # (Opcional) Cargar variables de entorno OpenStack
 if [[ -f "admin-openrc.sh" ]]; then
