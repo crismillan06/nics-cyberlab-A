@@ -62,8 +62,8 @@ ROUTER_NAME="router_private_01"
 
 INSTANCE_NAME="snort-server"
 SSH_USER="debian"
-SSH_KEY_PATH="$HOME/cyberrange/my_key.pem"
-USERDATA_FILE="$HOME/cyberrange/set-password.yml"
+SSH_KEY_PATH="$HOME/nics-cyberlab-A/my_key.pem"
+USERDATA_FILE="$HOME/nics-cyberlab-A/set-password.yml"
 KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
 
 # =========================

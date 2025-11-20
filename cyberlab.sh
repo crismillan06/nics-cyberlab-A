@@ -1,8 +1,7 @@
 #!/bin/bash
-# ============================================
-# Script de despliegue automático de CyberRange | CyberLab UMA 
-# Fecha: $(date +%Y-%m-%d)
-# ============================================
+# ===================================================
+# Script de despliegue automático de CyberLab | UMA
+# ===================================================
 
 set -e  # Detener el script ante cualquier error
 

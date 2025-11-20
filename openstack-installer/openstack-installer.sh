@@ -330,7 +330,7 @@ kolla-ansible deploy -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible post-deploy
 
 # CAMBIAR DE PERMISOS EL ENTORNO AL USUARIO LOCAL
-sudo chown -R nics:nics ~/cyberrange/openstack-installer/openstack_venv
+sudo chown -R nics:nics ~/nics-cyberlab-A/openstack-installer/openstack_venv
 
 # ============================================================
 # 9️⃣ CLIENTE OPENSTACK Y PERMISOS
