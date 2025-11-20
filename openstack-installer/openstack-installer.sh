@@ -10,6 +10,8 @@ set -x  # Debug mode
 
 echo "🚀 Iniciando automatización de instalación de OpenStack..."
 
+START_TIME=$(date +%s)
+
 # ============================================================
 # 1️⃣ CREAR ENTORNO VIRTUAL LOCAL (en el directorio del instalador)
 # ============================================================
@@ -166,8 +168,6 @@ pip install -r "$REQ_FILE" --no-cache-dir
 
 echo "✅ Dependencias Python instaladas correctamente."
 
-
-
 # ============================================================
 # 7️⃣.1 HABILITAR REENVÍO DE PAQUETES IPv4 (REQUISITO DE RED)
 # ============================================================
@@ -189,8 +189,6 @@ sudo sysctl -p
 
 echo "✅ Reenvío de paquetes IPv4 habilitado correctamente."
 
-
-
 # ============================================================
 # 🔧 CONFIGURAR TOPOLOGÍA DE RED (DESPUÉS DEL DEPLOY)
 # ============================================================
@@ -202,8 +200,6 @@ if [ -f "./setup-veth.sh" ]; then
 else
   echo "⚠️  No se encontró setup-veth.sh, continuando..."
 fi
-
-
 
 # ============================================================
 # 5️⃣ CONFIGURAR ARCHIVOS DE KOLLA
@@ -224,8 +220,6 @@ sudo chown -R "$USER:$USER" /etc/kolla
 
 echo "✅ Archivos de configuración de Kolla copiados completamente."
 
-
-
 # ============================================================
 # 6️⃣ GENERAR PASSWORDS Y CONFIGURAR GLOBALS
 # ============================================================
@@ -235,26 +229,46 @@ echo "✅ Archivos de configuración de Kolla copiados completamente."
 sudo chown "$USER:$USER" /etc/kolla/passwords.yml
 kolla-genpwd || true
 
-
-# -----*****************************Cambiar(automatizar)*******************************
-SUBNET="192.168.5"
-# -----************************************************************
+# ===============================
+# 🔍 AUTODETECCIÓN DE SUBNET LOCAL
+# ===============================
+# Obtiene la subred detectando la IP local y quedándose con los 3 primeros octetos
+LOCAL_IP=$(hostname -I | awk '{print $1}')
+SUBNET=$(echo "$LOCAL_IP" | awk -F. '{print $1"."$2"."$3}')
 
 START=10
-END=50
+END=200 # rango ampliado para mayor robustez
 VIP=""
+
+echo "🔹 Subred detectada automáticamente: $SUBNET.0/24"
+
+echo "🔹 Buscando IP libre para VIP..."
 for i in $(seq $START $END); do
-  IP="$SUBNET.$i"
-  if ! ping -c 1 -W 1 "$IP" &>/dev/null; then
-    VIP="$IP"
-    echo "✅ IP libre encontrada: $VIP"
-    break
-  fi
+IP="$SUBNET.$i"
+if ! ping -c 1 -W 1 "$IP" &>/dev/null; then
+VIP="$IP"
+echo "✅ IP libre encontrada: $VIP"
+break
+fi
 done
-[ -z "$VIP" ] && { echo "❌ No se encontró IP libre"; exit 1; }
 
+[ -z "$VIP" ] && { echo "❌ No se encontró IP libre en la subred $SUBNET.0/24"; exit 1; }
+
+# ===============================
+# 🔍 AUTODETECCIÓN DE INTERFAZ DE SALIDA
+# ===============================
+DEFAULT_IFACE=$(ip route get 8.8.8.8 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++){ if($i=="dev") print $(i+1)}}' | head -n1)
+
+# Fallback por si no detecta
+if [ -z "$DEFAULT_IFACE" ]; then
 DEFAULT_IFACE=$(ip route | awk '/default/ {print $5; exit}')
+fi
 
+echo "🔹 Interfaz predeterminada detectada: $DEFAULT_IFACE"
+
+# ===============================
+# ✍️ ESCRITURA AUTOMÁTICA DE globals.yml
+# ===============================
 sudo tee /etc/kolla/globals.yml > /dev/null <<EOF
 kolla_base_distro: "ubuntu"
 network_interface: "$DEFAULT_IFACE"
@@ -262,8 +276,9 @@ neutron_external_interface: "veth1"
 kolla_internal_vip_address: "$VIP"
 EOF
 
-sudo chown "$USER:$USER" /etc/kolla/globals.yml
+echo "✅ globals.yml generado automáticamente con éxito."
 
+sudo chown "$USER:$USER" /etc/kolla/globals.yml
 
 export PATH="$VENV_PATH/bin:$PATH"
 
@@ -314,9 +329,8 @@ kolla-ansible prechecks -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible deploy -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible post-deploy
 
-
 # CAMBIAR DE PERMISOS EL ENTORNO AL USUARIO LOCAL
-sudo chown -R nics:nics "$VENV_PATH"
+sudo chown -R nics:nics ~/cyberrange/openstack-installer/openstack_venv
 
 # ============================================================
 # 9️⃣ CLIENTE OPENSTACK Y PERMISOS
@@ -328,7 +342,14 @@ pip install python-openstackclient -c https://releases.openstack.org/constraints
 sudo chown -R root:root /etc/kolla
 sudo chmod -R 640 /etc/kolla/*.yml
 
+END_TIME=$(date +%s)
+TOTAL=$((END_TIME - START_TIME))
+MIN=$((TOTAL / 60))
+SEC=$((TOTAL % 60))
+
 echo "✅ Instalación completada. Ejecuta:"
 echo "   source /etc/kolla/admin-openrc.sh"
 echo "   openstack project list"
+
+echo "⏰ Tiempo total de instalación: ${MIN} minutos y ${SEC} segundos."
 echo "🎉 OpenStack desplegado correctamente con Kolla-Ansible."
