@@ -31,7 +31,7 @@ else
     exit 1
 fi
 step_end=$(date +%s)
-echo "Entorno activado en $(format_time $((step_end - step_start)))"
+echo "Entorno activado en $(human_time $((step_end - step_start)))"
 echo "-------------------------------------------"
 sleep 1
 
@@ -62,8 +62,8 @@ ROUTER_NAME="router_private_01"
 
 INSTANCE_NAME="snort-server"
 SSH_USER="debian"
-SSH_KEY_PATH="$HOME/nics-cyberlab-A/my_key.pem"
-USERDATA_FILE="$HOME/nics-cyberlab-A/set-password.yml"
+SSH_KEY_PATH="$HOME/cyberrange/my_key.pem"
+USERDATA_FILE="$HOME/cyberrange/set-password.yml"
 KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
 
 # =========================
@@ -149,8 +149,6 @@ fi
 
 ssh-keygen -f "$KNOWN_HOSTS_FILE" -R "$FLOATING_IP" >/dev/null 2>&1
 openstack server add floating ip "$INSTANCE_NAME" "$FLOATING_IP"
-
-sleep 10
 
 # =========================
 # ESPERA SSH (1 MINUTO)
@@ -245,9 +243,19 @@ echo "[✔] IP flotante asignada: $FLOATING_IP"
 SCRIPT_END=$(date +%s)
 SCRIPT_TIME=$((SCRIPT_END - SCRIPT_START))
 
-echo "================================================"
+echo "===================================================="
 echo "[⏱] Tiempo TOTAL del script: $(format_time $SCRIPT_TIME)"
-echo "================================================"
+echo "===================================================="
 
 echo "Acceso SSH:"
 echo "    ssh -i $SSH_KEY_PATH $SSH_USER@$FLOATING_IP"
+echo "-----------------------------------------------"
+
+echo "📌 Terminal 1 – Snort capturando tráfico:"
+echo "    sudo snort -i ens3 -c /etc/snort/snort.lua -A alert_fast -k none -l /var/log/snort"
+echo
+echo "📌 Terminal 2 – Visualización en tiempo real de alertas:"
+echo "    sudo tail -f /var/log/snort/alert_fast.txt"
+echo
+echo "📌 Terminal 3 – Cliente externo (prueba ICMP):"
+echo "    ping -c 4 <IP_tarjeta_snort>"

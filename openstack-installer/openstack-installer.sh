@@ -169,39 +169,6 @@ pip install -r "$REQ_FILE" --no-cache-dir
 echo "✅ Dependencias Python instaladas correctamente."
 
 # ============================================================
-# 7️⃣.1 HABILITAR REENVÍO DE PAQUETES IPv4 (REQUISITO DE RED)
-# ============================================================
-echo "🔹 Verificando el reenvío de paquetes IPv4..."
-
-# Habilitar temporalmente el reenvío de paquetes
-sudo sysctl -w net.ipv4.conf.all.forwarding=1
-
-# Comprobar si ya está en /etc/sysctl.conf; si no, añadirlo
-if ! grep -q "^net.ipv4.conf.all.forwarding=1" /etc/sysctl.conf; then
-  echo "net.ipv4.conf.all.forwarding=1" | sudo tee -a /etc/sysctl.conf > /dev/null
-  echo "✅ Configuración añadida a /etc/sysctl.conf"
-else
-  echo "ℹ️  La configuración de reenvío ya estaba habilitada en /etc/sysctl.conf"
-fi
-
-# Aplicar los cambios del archivo sysctl.conf
-sudo sysctl -p
-
-echo "✅ Reenvío de paquetes IPv4 habilitado correctamente."
-
-# ============================================================
-# 🔧 CONFIGURAR TOPOLOGÍA DE RED (DESPUÉS DEL DEPLOY)
-# ============================================================
-if [ -f "./setup-veth.sh" ]; then
-  echo "🔹 Configurando red virtual post-deploy..."
-  chmod +x ./setup-veth.sh
-  sudo bash ./setup-veth.sh
-  echo "✅ Red virtual configurada correctamente."
-else
-  echo "⚠️  No se encontró setup-veth.sh, continuando..."
-fi
-
-# ============================================================
 # 5️⃣ CONFIGURAR ARCHIVOS DE KOLLA
 # ============================================================
 KOLLA_EXAMPLES="$VENV_PATH/share/kolla-ansible/etc_examples/kolla"

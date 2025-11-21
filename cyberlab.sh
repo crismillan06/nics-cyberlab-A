@@ -1,7 +1,8 @@
 #!/bin/bash
-# ===================================================
-# Script de despliegue automático de CyberLab | UMA
-# ===================================================
+# ============================================
+# Script de despliegue automático de CyberRange | CyberLab UMA 
+# Fecha: $(date +%Y-%m-%d)
+# ============================================
 
 set -e  # Detener el script ante cualquier error
 
@@ -16,9 +17,8 @@ function timer() {
 # Marca de inicio general
 overall_start=$(date +%s)
 
-echo "=============================================="
-echo "🚀 Iniciando despliegue de CyberLab de NICS..."
-echo "=============================================="
+echo "🚀 Iniciando despliegue de CyberRange..."
+echo "==========================================="
 sleep 1
 
 # Paso 1: Instalación de OpenStack
@@ -42,10 +42,6 @@ fi
 echo "Entorno activado en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
-
-echo "Configurado estructura de redes..."
-sudo bash uplinkbridge.sh
-sleep 1
 
 # (Opcional) Cargar variables de entorno OpenStack
 if [[ -f "admin-openrc.sh" ]]; then
@@ -85,11 +81,15 @@ echo ""
 echo "⚙️  El dashboard se está ejecutando en segundo plano."
 echo "🔢  PID del proceso: $DASH_PID"
 echo "🧩  Para detenerlo, ejecuta el siguiente comando:"
-echo ""
-echo "   kill $DASH_PID"
+echo "  >  kill $DASH_PID"
 echo ""
 echo "📜  Log en tiempo real: tail -f dashboard_log.log"
 echo "==========================================="
+echo ""
+echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:
+echo "  > source openstack-installer/openstack_venv/bin/activate"
+echo "  > source admin-openrc.sh"
+echo "----------------------------------------------------------"
 
 # Desactivar entorno al salir del script
 deactivate 2>/dev/null || true
