@@ -21,29 +21,29 @@ echo "             Debian 12 + Snort 3             "
 echo "============================================="
 
 # ===== Activar entorno virtual =====
-echo "🌍 Activando entorno virtual de OpenStack..."
+echo "[+] Activando entorno virtual de OpenStack..."
 step_start=$(date +%s)
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
-    echo "✅ Entorno virtual 'openstack_venv' activado correctamente."
+    echo "[✔] Entorno virtual 'openstack_venv' activado correctamente."
 else
-    echo "❌ No se encontró el entorno 'openstack_venv'. Ejecuta primero openstack-recursos.sh"
+    echo "[✖] No se encontró el entorno 'openstack_venv'. Ejecuta primero openstack-recursos.sh"
     exit 1
 fi
 step_end=$(date +%s)
-echo "Entorno activado en $(human_time $((step_end - step_start)))"
+echo "[⏱] Entorno activado en $(human_time $((step_end - step_start)))"
 echo "-------------------------------------------"
 sleep 1
 
 # ===== Cargar variables de entorno OpenStack =====
 if [[ -f "admin-openrc.sh" ]]; then
-    echo "🔐 Cargando variables del entorno OpenStack (admin-openrc.sh)..."
+    echo "[+] Cargando variables del entorno OpenStack (admin-openrc.sh)..."
     source admin-openrc.sh
-    echo "✅ Variables cargadas correctamente."
+    echo "[✔] Variables cargadas correctamente."
     echo "-------------------------------------------"
     sleep 1
 else
-    echo "❌ No se encontró 'admin-openrc.sh'. Ejecuta primero openstack-recursos.sh"
+    echo "[✖] No se encontró 'admin-openrc.sh'. Ejecuta primero openstack-recursos.sh"
     exit 1
 fi
 
@@ -69,34 +69,34 @@ KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
 # =========================
 # VERIFICACIÓN DE RECURSOS
 # =========================
-echo "[*] Verificando recursos necesarios..."
+echo "[+] Verificando recursos necesarios..."
 
 if ! openstack image list -f value -c Name | grep -qw "$IMAGE_NAME"; then
-    echo "❌ Falta la imagen '$IMAGE_NAME'. Ejecuta openstack-recursos.sh"; exit 1
+    echo "[!] Falta la imagen '$IMAGE_NAME'. Ejecuta openstack-recursos.sh"; exit 1
 fi
 if ! openstack flavor list -f value -c Name | grep -qw "$FLAVOR"; then
-    echo "❌ Falta el flavor '$FLAVOR'. Ejecuta openstack-recursos.sh"; exit 1
+    echo "[!] Falta el flavor '$FLAVOR'. Ejecuta openstack-recursos.sh"; exit 1
 fi
 if ! openstack keypair list -f value -c Name | grep -qw "$KEY_NAME"; then
-    echo "❌ Falta el keypair '$KEY_NAME'. Ejecuta openstack-recursos.sh"; exit 1
+    echo "[!] Falta el keypair '$KEY_NAME'. Ejecuta openstack-recursos.sh"; exit 1
 fi
 if [[ ! -f "$SSH_KEY_PATH" ]]; then
-    echo "❌ No se encuentra la clave privada '$SSH_KEY_PATH'."; exit 1
+    echo "[!] No se encuentra la clave privada '$SSH_KEY_PATH'."; exit 1
 fi
 if ! openstack security group list -f value -c Name | grep -qw "$SEC_GROUP"; then
-    echo "❌ Falta el grupo de seguridad '$SEC_GROUP'. Ejecuta openstack-recursos.sh"; exit 1
+    echo "[!] Falta el grupo de seguridad '$SEC_GROUP'. Ejecuta openstack-recursos.sh"; exit 1
 fi
 if ! openstack network list -f value -c Name | grep -qw "$NETWORK_PRIVATE"; then
-    echo "❌ Falta la red privada '$NETWORK_PRIVATE'."; exit 1
+    echo "[!] Falta la red privada '$NETWORK_PRIVATE'."; exit 1
 fi
 if ! openstack subnet list -f value -c Name | grep -qw "$SUBNET_PRIVATE"; then
-    echo "❌ Falta la subred privada '$SUBNET_PRIVATE'."; exit 1
+    echo "[!] Falta la subred privada '$SUBNET_PRIVATE'."; exit 1
 fi
 if ! openstack router list -f value -c Name | grep -qw "$ROUTER_NAME"; then
-    echo "❌ Falta el router '$ROUTER_NAME'."; exit 1
+    echo "[!] Falta el router '$ROUTER_NAME'."; exit 1
 fi
 if [[ ! -f "$USERDATA_FILE" ]]; then
-    echo "❌ No se encuentra '$USERDATA_FILE'."; exit 1
+    echo "[!] No se encuentra '$USERDATA_FILE'."; exit 1
 fi
 
 echo "[✔] Todos los recursos necesarios existen."
@@ -121,7 +121,7 @@ fi
 # =========================
 # CREACIÓN DE LA INSTANCIA
 # =========================
-echo "[*] Creando instancia '$INSTANCE_NAME'..."
+echo "[+] Creando instancia '$INSTANCE_NAME'..."
 openstack server create \
   --image "$IMAGE_NAME" \
   --flavor "$FLAVOR" \
@@ -131,7 +131,7 @@ openstack server create \
   --user-data "$USERDATA_FILE" \
   "$INSTANCE_NAME"
 
-echo "[*] Esperando que la instancia esté ACTIVE..."
+echo "[+] Esperando que la instancia esté ACTIVE..."
 until [[ "$(openstack server show "$INSTANCE_NAME" -f value -c status)" == "ACTIVE" ]]; do
     sleep 5
     echo -n "."
@@ -153,7 +153,7 @@ openstack server add floating ip "$INSTANCE_NAME" "$FLOATING_IP"
 # =========================
 # ESPERA SSH (1 MINUTO)
 # =========================
-echo "[*] Esperando conexión SSH (timeout 1 min)..."
+echo "[+] Esperando conexión SSH (timeout 1 min)..."
 SSH_TIMEOUT=60
 SSH_START=$(date +%s)
 
@@ -163,7 +163,7 @@ until ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_PATH" $SSH_USER@"$FLOATING_IP
     NOW=$(date +%s)
     if (( NOW - SSH_START > SSH_TIMEOUT )); then
         echo
-        echo "❌ Timeout al intentar conectar por SSH"
+        echo "[✖] Timeout al intentar conectar por SSH"
         exit 1
     fi
 done
@@ -248,14 +248,14 @@ echo "[⏱] Tiempo TOTAL del script: $(format_time $SCRIPT_TIME)"
 echo "===================================================="
 
 echo "Acceso SSH:"
-echo "    ssh -i $SSH_KEY_PATH $SSH_USER@$FLOATING_IP"
+echo "[➜] ssh -i $SSH_KEY_PATH $SSH_USER@$FLOATING_IP"
 echo "-----------------------------------------------"
 
-echo "📌 Terminal 1 – Snort capturando tráfico:"
-echo "    sudo snort -i ens3 -c /etc/snort/snort.lua -A alert_fast -k none -l /var/log/snort"
+echo "Terminal 1 – Snort capturando tráfico:"
+echo "[➜] sudo snort -i ens3 -c /etc/snort/snort.lua -A alert_fast -k none -l /var/log/snort"
 echo
-echo "📌 Terminal 2 – Visualización en tiempo real de alertas:"
-echo "    sudo tail -f /var/log/snort/alert_fast.txt"
+echo "Terminal 2 – Visualización en tiempo real de alertas:"
+echo "[➜] sudo tail -f /var/log/snort/alert_fast.txt"
 echo
-echo "📌 Terminal 3 – Cliente externo (prueba ICMP):"
-echo "    ping -c 4 <IP_tarjeta_snort>"
+echo "Terminal 3 – Cliente externo (prueba ICMP):"
+echo "[➜] ping -c 4 <IP_tarjeta_snort>"
