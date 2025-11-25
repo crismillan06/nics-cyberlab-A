@@ -39,7 +39,7 @@ else
     echo "[✖] No se encontró el entorno 'openstack_venv'."
     exit 1
 fi
-echo "Entorno activado en $(timer $step_start)"
+echo "[⏱] Entorno activado en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
 
@@ -92,16 +92,16 @@ USERNAME=$(grep -m1 "username:" /etc/kolla/clouds.yaml | awk '{print $2}')
 PASSWORD=$(grep -m1 "password:" /etc/kolla/clouds.yaml | awk '{print $2}')
 
 echo "Si quiere acceder manualmente al dashboard de OpenStack:"
-echo "URL del Dashboard:   ${AUTH_URL}"
-echo "Usuario:             ${USERNAME}"
-echo "Contraseña:          ${PASSWORD}"
+echo "[➜] URL del Dashboard:   ${AUTH_URL}"
+echo "[➜] Usuario:             ${USERNAME}"
+echo "[➜] Contraseña:          ${PASSWORD}"
 echo "----------------------------------------------------------"
 echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:"
-echo "[+] source openstack-installer/openstack_venv/bin/activate"
-echo "[+] source admin-openrc.sh"
+echo "[➜] source openstack-installer/openstack_venv/bin/activate"
+echo "[➜] source admin-openrc.sh"
 echo "----------------------------------------------------------"
 
 # Desactivar entorno al salir del script
 deactivate 2>/dev/null || true
 
-echo "Tiempo total de despliegue: $(timer $overall_start)"
+echo "[⏱] Tiempo total de despliegue: $(timer $overall_start)"
