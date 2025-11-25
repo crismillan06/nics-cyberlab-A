@@ -1,7 +1,6 @@
 #!/bin/bash
 # ==================================================
-# Script de despliegue automático de CyberLab | UMA 
-# Fecha: $(date +%Y-%m-%d)
+# Script de despliegue automático de NICS | CyberLab 
 # ==================================================
 
 set -e  # Detener el script ante cualquier error
@@ -17,9 +16,9 @@ function timer() {
 # Marca de inicio general
 overall_start=$(date +%s)
 
-echo "==========================================="
-echo "🚀 Iniciando despliegue de CyberLab..."
-echo "==========================================="
+echo "=============================================="
+echo "🚀 Iniciando despliegue de NICS | CyberLab..."
+echo "=============================================="
 sleep 1
 
 # Paso 1: Instalación de OpenStack
