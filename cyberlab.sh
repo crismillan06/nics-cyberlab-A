@@ -25,7 +25,7 @@ sleep 1
 echo "▶️  Ejecutando instalador de OpenStack..."
 step_start=$(date +%s)
 bash openstack-installer/openstack-installer.sh
-echo "✅ Instalación de OpenStack completada en $(timer $step_start)"
+echo "[✔] Instalación de OpenStack completada en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
 
@@ -34,9 +34,9 @@ echo "🌍 Activando entorno virtual de OpenStack..."
 step_start=$(date +%s)
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
-    echo "✅ Entorno virtual 'openstack_venv' activado correctamente."
+    echo "[✔] Entorno virtual 'openstack_venv' activado correctamente."
 else
-    echo "❌ No se encontró el entorno 'openstack_venv'."
+    echo "[✖] No se encontró el entorno 'openstack_venv'."
     exit 1
 fi
 echo "Entorno activado en $(timer $step_start)"
@@ -45,23 +45,23 @@ sleep 2
 
 # (Opcional) Cargar variables de entorno OpenStack
 if [[ -f "admin-openrc.sh" ]]; then
-    echo "🔐 Cargando variables del entorno OpenStack (admin-openrc.sh)..."
+    echo "[+] Cargando variables del entorno OpenStack (admin-openrc.sh)..."
     source admin-openrc.sh
-    echo "✅ Variables cargadas correctamente."
+    echo "[✔] Variables cargadas correctamente."
     echo "-------------------------------------------"
     sleep 1
 fi
 
 # Paso 2: Generación de credenciales
-echo "▶️  Generando credenciales OpenStack..."
+echo "[+] Generando credenciales OpenStack..."
 step_start=$(date +%s)
 bash generate_app_cred_openrc_from_clouds.sh
-echo "✅ Credenciales generadas correctamente en $(timer $step_start)"
+echo "[✔] Credenciales generadas correctamente en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
 
 # Paso 3: Arranque del dashboard (en segundo plano con PID visible)
-echo "▶️  Iniciando dashboard de CyberRange..."
+echo "[+] Iniciando dashboard de CyberRange..."
 step_start=$(date +%s)
 
 # Lanzamos el dashboard en segundo plano y guardamos el PID
@@ -69,7 +69,7 @@ bash start_dashboard.sh > dashboard_log.log 2>&1 &
 DASH_PID=$!
 
 sleep 5  # espera breve para que el servicio levante
-echo "✅ Dashboard iniciado en $(timer $step_start)"
+echo "[✔] Dashboard iniciado en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 1
 
