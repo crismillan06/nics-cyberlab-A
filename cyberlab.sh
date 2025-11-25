@@ -22,7 +22,7 @@ echo "=============================================="
 sleep 1
 
 # Paso 1: Instalación de OpenStack
-echo "▶️  Ejecutando instalador de OpenStack..."
+echo "[+] Ejecutando instalador de OpenStack..."
 step_start=$(date +%s)
 bash openstack-installer/openstack-installer.sh
 echo "[✔] Instalación de OpenStack completada en $(timer $step_start)"
@@ -30,7 +30,7 @@ echo "-------------------------------------------"
 sleep 2
 
 # ===== Activar entorno virtual =====
-echo "🌍 Activando entorno virtual de OpenStack..."
+echo "[+] Activando entorno virtual de OpenStack..."
 step_start=$(date +%s)
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
@@ -104,4 +104,4 @@ echo "----------------------------------------------------------"
 # Desactivar entorno al salir del script
 deactivate 2>/dev/null || true
 
-echo "🕒 Tiempo total de despliegue: $(timer $overall_start)"
+echo "Tiempo total de despliegue: $(timer $overall_start)"
