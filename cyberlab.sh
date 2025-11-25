@@ -17,7 +17,8 @@ function timer() {
 # Marca de inicio general
 overall_start=$(date +%s)
 
-echo "🚀 Iniciando despliegue de CyberRange..."
+echo "==========================================="
+echo "🚀 Iniciando despliegue de CyberLab..."
 echo "==========================================="
 sleep 1
 
