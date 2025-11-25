@@ -75,7 +75,7 @@ sleep 1
 
 # Mostrar información del proceso
 echo
-echo "🌐 Accede al dashboard desde tu navegador:"
+echo "Accede al dashboard desde tu navegador:"
 echo "👉 http://localhost:5001"
 echo
 echo "⚙️ El dashboard se está ejecutando en segundo plano."
@@ -84,9 +84,19 @@ echo "Para detenerlo, ejecuta el siguiente comando:"
 echo "[!] kill $DASH_PID"
 echo
 echo "Log en tiempo real: tail -f dashboard_log.log"
-echo "==========================================="
-echo
-echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:
+echo "============================================="
+
+# Extraer valores desde clouds.yaml
+AUTH_URL=$(grep -m1 "auth_url:" /etc/kolla/clouds.yaml | awk '{print $2}' | sed 's/:5000//')
+USERNAME=$(grep -m1 "username:" /etc/kolla/clouds.yaml | awk '{print $2}')
+PASSWORD=$(grep -m1 "password:" /etc/kolla/clouds.yaml | awk '{print $2}')
+
+echo "Si quiere acceder manualmente al dashboard de OpenStack:"
+echo "URL del Dashboard:   ${AUTH_URL}"
+echo "Usuario:             ${USERNAME}"
+echo "Contraseña:          ${PASSWORD}"
+echo "----------------------------------------------------------"
+echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:"
 echo "[+] source openstack-installer/openstack_venv/bin/activate"
 echo "[+] source admin-openrc.sh"
 echo "----------------------------------------------------------"
