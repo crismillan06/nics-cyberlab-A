@@ -1,14 +1,12 @@
 #!/bin/bash
-#bash openstack-installer.sh 2>&1 | tee nombre_del_log.log
-
 # ============================================================
-# 🚀 Script completo: Instalación OpenStack + Kolla-Ansible
+# Script completo: Instalación OpenStack + Kolla-Ansible
 # ============================================================
 
 set -euo pipefail
 set -x  # Debug mode
 
-echo "🚀 Iniciando automatización de instalación de OpenStack..."
+echo "🔹 Iniciando despliegue automatizado de OpenStack..."
 
 START_TIME=$(date +%s)
 
@@ -28,14 +26,15 @@ python3.12 -m venv "$VENV_PATH"
 source "$VENV_PATH/bin/activate"
 export PATH="$VENV_PATH/bin:$PATH"
 
-echo "✅ Entorno virtual activado: $(which python)"
-echo "📦 Entorno creado en: $VENV_PATH"
+echo "[✔] Entorno virtual activado: $(which python)"
+echo "Entorno creado en: $VENV_PATH"
 
 
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip setuptools wheel
 #which pip
 #pip --version
+
 # ============================================================
 # 2️⃣ INSTALAR DEPENDENCIAS DEL SISTEMA
 # ============================================================
@@ -44,7 +43,7 @@ sudo apt install -y git iptables bridge-utils wget curl dbus pkg-config \
 cmake build-essential libdbus-1-dev libglib2.0-dev sudo gnupg \
 apt-transport-https ca-certificates software-properties-common
 
-# ✅ Ahora ya se puede instalar dbus-python
+# Ahora ya se puede instalar dbus-python
 python -m pip install dbus-python docker
 
 # ============================================================
@@ -166,7 +165,7 @@ EOF
 
 pip install -r "$REQ_FILE" --no-cache-dir
 
-echo "✅ Dependencias Python instaladas correctamente."
+echo "[✔] Dependencias Python instaladas correctamente."
 
 # ============================================================
 # 5️⃣ CONFIGURAR ARCHIVOS DE KOLLA
@@ -185,19 +184,16 @@ sudo cp "$KOLLA_INVENTORY/all-in-one" /etc/kolla/ansible/inventory/
 # Cambiar propietario
 sudo chown -R "$USER:$USER" /etc/kolla
 
-echo "✅ Archivos de configuración de Kolla copiados completamente."
+echo "[✔] Archivos de configuración de Kolla copiados completamente."
 
 # ============================================================
 # 6️⃣ GENERAR PASSWORDS Y CONFIGURAR GLOBALS
-# ============================================================
-# ============================================================
-# 6️⃣ Generar passwords y configurar globals.yml
 # ============================================================
 sudo chown "$USER:$USER" /etc/kolla/passwords.yml
 kolla-genpwd || true
 
 # ===============================
-# 🔍 AUTODETECCIÓN DE SUBNET LOCAL
+# AUTODETECCIÓN DE SUBNET LOCAL
 # ===============================
 # Obtiene la subred detectando la IP local y quedándose con los 3 primeros octetos
 LOCAL_IP=$(hostname -I | awk '{print $1}')
@@ -214,7 +210,7 @@ for i in $(seq $START $END); do
 IP="$SUBNET.$i"
 if ! ping -c 1 -W 1 "$IP" &>/dev/null; then
 VIP="$IP"
-echo "✅ IP libre encontrada: $VIP"
+echo "[✔] IP libre encontrada: $VIP"
 break
 fi
 done
@@ -222,7 +218,7 @@ done
 [ -z "$VIP" ] && { echo "❌ No se encontró IP libre en la subred $SUBNET.0/24"; exit 1; }
 
 # ===============================
-# 🔍 AUTODETECCIÓN DE INTERFAZ DE SALIDA
+# AUTODETECCIÓN DE INTERFAZ DE SALIDA
 # ===============================
 DEFAULT_IFACE=$(ip route get 8.8.8.8 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++){ if($i=="dev") print $(i+1)}}' | head -n1)
 
@@ -234,7 +230,7 @@ fi
 echo "🔹 Interfaz predeterminada detectada: $DEFAULT_IFACE"
 
 # ===============================
-# ✍️ ESCRITURA AUTOMÁTICA DE globals.yml
+# ESCRITURA AUTOMÁTICA DE globals.yml
 # ===============================
 sudo tee /etc/kolla/globals.yml > /dev/null <<EOF
 kolla_base_distro: "ubuntu"
@@ -243,7 +239,7 @@ neutron_external_interface: "veth1"
 kolla_internal_vip_address: "$VIP"
 EOF
 
-echo "✅ globals.yml generado automáticamente con éxito."
+echo "[✔] globals.yml generado automáticamente con éxito."
 
 sudo chown "$USER:$USER" /etc/kolla/globals.yml
 
@@ -285,12 +281,12 @@ if __name__ == '__main__':
 EOF
 
 chmod +x ~/.ansible/collections/ansible_collections/ansible/posix/plugins/modules/modprobe.py
-echo "✅ Colecciones Ansible y fix de modprobe configurados."
+echo "[✔] Colecciones Ansible y fix de modprobe configurados."
 
 # ============================================================
 # 8️⃣ DESPLIEGUE DE OPENSTACK
 # ============================================================
-echo "🚀 Iniciando despliegue de OpenStack..."
+echo "🔹 Iniciando despliegue de OpenStack..."
 kolla-ansible bootstrap-servers -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible prechecks -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible deploy -i /etc/kolla/ansible/inventory/all-in-one
@@ -314,9 +310,8 @@ TOTAL=$((END_TIME - START_TIME))
 MIN=$((TOTAL / 60))
 SEC=$((TOTAL % 60))
 
-echo "✅ Instalación completada. Ejecuta:"
-echo "   source /etc/kolla/admin-openrc.sh"
-echo "   openstack project list"
+echo "[✔] OpenStack desplegado correctamente con Kolla-Ansible. Ejecute:"
+echo "[➜] openstack project list"
+echo "-------------------------------------------------------------------"
+echo "[⏱] Tiempo total de instalación: ${MIN} minutos y ${SEC} segundos."
 
-echo "⏰ Tiempo total de instalación: ${MIN} minutos y ${SEC} segundos."
-echo "🎉 OpenStack desplegado correctamente con Kolla-Ansible."
