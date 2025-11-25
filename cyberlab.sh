@@ -74,27 +74,24 @@ echo "-------------------------------------------"
 sleep 1
 
 # Mostrar información del proceso
-echo ""
+echo
 echo "🌐 Accede al dashboard desde tu navegador:"
 echo "👉 http://localhost:5001"
-echo ""
-echo "⚙️  El dashboard se está ejecutando en segundo plano."
-echo "🔢  PID del proceso: $DASH_PID"
-echo "🧩  Para detenerlo, ejecuta el siguiente comando:"
-echo "  >  kill $DASH_PID"
-echo ""
-echo "📜  Log en tiempo real: tail -f dashboard_log.log"
+echo
+echo "⚙️ El dashboard se está ejecutando en segundo plano."
+echo "PID del proceso: $DASH_PID"
+echo "Para detenerlo, ejecuta el siguiente comando:"
+echo "[!] kill $DASH_PID"
+echo
+echo "Log en tiempo real: tail -f dashboard_log.log"
 echo "==========================================="
-echo ""
+echo
 echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:
-echo "  > source openstack-installer/openstack_venv/bin/activate"
-echo "  > source admin-openrc.sh"
+echo "[+] source openstack-installer/openstack_venv/bin/activate"
+echo "[+] source admin-openrc.sh"
 echo "----------------------------------------------------------"
 
 # Desactivar entorno al salir del script
 deactivate 2>/dev/null || true
 
-# Tiempo total
-echo ""
 echo "🕒 Tiempo total de despliegue: $(timer $overall_start)"
-echo ""
