@@ -51,7 +51,11 @@ if [[ -f "admin-openrc.sh" ]]; then
 fi
 sleep 1
 
-# Paso 2: Generación de credenciales
+#Paso 2: Levantar infraestructura de la red
+echo "🔹 Construyendo reglas de iptables para el correcto funcionamiento de la red..."
+sudo bash openstack-installer/setup-veth.sh
+
+# Paso 3: Generación de credenciales
 echo "🔹 Generando credenciales OpenStack..."
 step_start=$(date +%s)
 bash generate_app_cred_openrc_from_clouds.sh
@@ -59,7 +63,7 @@ echo "[✔] Credenciales generadas correctamente en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
 
-# Paso 3: Arranque del dashboard (en segundo plano)
+# Paso 4: Arranque del dashboard (en segundo plano)
 echo "🔹 Iniciando dashboard de NICS | CyberLab..."
 step_start=$(date +%s)
 

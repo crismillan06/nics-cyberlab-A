@@ -16,16 +16,16 @@ detect_phys_iface() {
   echo "$dev"
 }
 
-echo "🔹 Limpiando reglas anteriores de iptables..."
+echo "🔹 Limpiando reglas antiguas específicas del script..."
 
-# ==== LIMPIEZA COMPLETA IPTABLES (filter y nat) ====
-iptables -F
-iptables -Z
-iptables -X
+# Limpieza segura (SOLO reglas añadidas por este script)
+iptables -t nat -D POSTROUTING -s 10.0.2.0/24 -j MASQUERADE 2>/dev/null || true
+iptables -t nat -D POSTROUTING -s 192.168.250.0/24 -j MASQUERADE 2>/dev/null || true
+iptables -D FORWARD -s 10.0.2.0/24 -j ACCEPT 2>/dev/null || true
+iptables -D FORWARD -s 192.168.250.0/24 -j ACCEPT 2>/dev/null || true
 
-iptables -t nat -F
-iptables -t nat -Z
-iptables -t nat -X
+# Asegurar política FORWARD en ACCEPT (si estaba en DROP, rompe NAT)
+iptables -P FORWARD ACCEPT
 
 echo "🔹 Verificando si existen interfaces antiguas..."
 
@@ -56,7 +56,7 @@ echo "🔹 Habilitando reenvío de paquetes IPv4..."
 # Activación temporal
 sysctl -w net.ipv4.conf.all.forwarding=1 >/dev/null
 
-# Activación persistente en /etc/sysctl.conf
+# Activación persistente
 if ! grep -q "^net.ipv4.conf.all.forwarding=1" /etc/sysctl.conf; then
   echo "net.ipv4.conf.all.forwarding=1" | tee -a /etc/sysctl.conf >/dev/null
   echo "[✓] Configuración persistente añadida a /etc/sysctl.conf"
@@ -64,7 +64,6 @@ else
   echo "[ℹ] Reenvío IPv4 ya estaba configurado en /etc/sysctl.conf"
 fi
 
-# Aplicar cambios
 sysctl -p >/dev/null
 
 # Detectar interfaz física
@@ -78,16 +77,14 @@ echo "[+] Usando interfaz física detectada: ${PHYS_IF}"
 
 echo "[+] Configurando reglas iptables NAT y FORWARD..."
 
-# Regras NAT
 iptables -t nat -A POSTROUTING -o "${PHYS_IF}" -s 10.0.2.0/24 -j MASQUERADE
 iptables -t nat -A POSTROUTING -o "${PHYS_IF}" -s 192.168.250.0/24 -j MASQUERADE
 
-# FORWARD
 iptables -I FORWARD -s 10.0.2.0/24 -j ACCEPT
 iptables -I FORWARD -s 192.168.250.0/24 -j ACCEPT
 
 echo "[✓] uplinkbridge configurado."
 echo "    - Bridge: uplinkbridge (10.0.2.1/24)"
-echo "    - Veth:   veth0 (en bridge) <-> veth1 (para Neutron u otras pruebas)"
+echo "    - Veth:   veth0 (en bridge) <-> veth1"
 echo "    - NAT a través de: ${PHYS_IF}"
-echo "    - Reenvío IPv4: Habilitado (temporal y persistente)"
+echo "    - Reenvío IPv4: Habilitado"
