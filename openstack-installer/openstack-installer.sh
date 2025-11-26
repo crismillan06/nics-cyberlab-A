@@ -4,7 +4,8 @@
 # ============================================================
 
 set -euo pipefail
-set -x  # Debug mode
+#set -x  # Debug mode
+trap 'echo "⚠️  Error en la línea $LINENO. Abortando."; exit 1;' ERR
 
 echo "🔹 Iniciando despliegue automatizado de OpenStack..."
 
@@ -29,11 +30,8 @@ export PATH="$VENV_PATH/bin:$PATH"
 echo "[✔] Entorno virtual activado: $(which python)"
 echo "Entorno creado en: $VENV_PATH"
 
-
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip setuptools wheel
-#which pip
-#pip --version
 
 # ============================================================
 # 2️⃣ INSTALAR DEPENDENCIAS DEL SISTEMA
@@ -43,38 +41,54 @@ sudo apt install -y git iptables bridge-utils wget curl dbus pkg-config \
 cmake build-essential libdbus-1-dev libglib2.0-dev sudo gnupg \
 apt-transport-https ca-certificates software-properties-common
 
-# Ahora ya se puede instalar dbus-python
 python -m pip install dbus-python docker
-
-# ============================================================
-# 2️⃣ INSTALAR DEPENDENCIAS DEL SISTEMA
-# ============================================================
-echo "🔹 Instalando dependencias del sistema..."
-sudo apt install -y git iptables bridge-utils wget curl dbus pkg-config \
-libdbus-1-dev libglib2.0-dev sudo gnupg apt-transport-https \
-ca-certificates software-properties-common
 
 # ============================================================
 # 3️⃣ CONFIGURAR DOCKER Y TERRAFORM
 # ============================================================
 echo "🔹 Configurando Docker y Terraform..."
-sudo rm -f /etc/apt/sources.list.d/docker.list
-sudo rm -rf /etc/apt/keyrings/docker.asc
-sudo mkdir -p /usr/share/keyrings
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-  sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+# --- Clave GPG de Docker (segura, idempotente) ---
+DOCKER_KEYRING="/usr/share/keyrings/docker-archive-keyring.gpg"
+if [ ! -f "$DOCKER_KEYRING" ]; then
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+      sudo gpg --dearmor -o "$DOCKER_KEYRING"
+else
+    echo "[✔] Clave GPG de Docker ya existe, se omite descarga."
+fi
 
+# --- Repositorio Docker ---
 ARCH=$(dpkg --print-architecture)
 DISTRO=$(lsb_release -cs)
-echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+echo "deb [arch=$ARCH signed-by=$DOCKER_KEYRING] \
 https://download.docker.com/linux/ubuntu $DISTRO stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list
 
 sudo apt update -y
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo snap install terraform --classic || sudo apt install -y terraform
 
+# --- Terraform: mediante Snap,sino fallback HashiCorp ---
+echo "🔹 Instalando Terraform..."
+if sudo snap install terraform --classic; then
+    echo "[✔] Terraform instalado mediante Snap"
+else
+    echo "[✖] Snap falló. Instalando Terraform desde HashiCorp..."
+    HASHICORP_KEY="/usr/share/keyrings/hashicorp-archive-keyring.gpg"
+    if [ ! -f "$HASHICORP_KEY" ]; then
+        wget -O- https://apt.releases.hashicorp.com/gpg | \
+          sudo gpg --dearmor -o "$HASHICORP_KEY"
+    fi
+
+    echo "deb [signed-by=$HASHICORP_KEY] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+      sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+    sudo apt update -y
+    sudo apt install -y terraform
+fi
+
+echo "[✔] Terraform instalado correctamente: $(terraform version)"
+
+# --- Activar Docker y permisos usuario ---
 sudo systemctl enable docker --now
 sudo usermod -aG docker "$USER"
 
@@ -163,7 +177,7 @@ wrapt==1.17.2
 wsproto==1.2.0
 EOF
 
-pip install -r "$REQ_FILE" --no-cache-dir
+pip install -r "$REQ_FILE" --no-cache-dir || { echo "❌ Fallo en instalación Python packages"; exit 1; }
 
 echo "[✔] Dependencias Python instaladas correctamente."
 
@@ -174,14 +188,8 @@ KOLLA_EXAMPLES="$VENV_PATH/share/kolla-ansible/etc_examples/kolla"
 KOLLA_INVENTORY="$VENV_PATH/share/kolla-ansible/ansible/inventory"
 
 sudo mkdir -p /etc/kolla/ansible/inventory
-
-# Copiar TODO el contenido del directorio de ejemplos
 sudo cp -r "$KOLLA_EXAMPLES"/* /etc/kolla/
-
-# Copiar inventario de ejemplo (all-in-one)
 sudo cp "$KOLLA_INVENTORY/all-in-one" /etc/kolla/ansible/inventory/
-
-# Cambiar propietario
 sudo chown -R "$USER:$USER" /etc/kolla
 
 echo "[✔] Archivos de configuración de Kolla copiados completamente."
@@ -192,46 +200,30 @@ echo "[✔] Archivos de configuración de Kolla copiados completamente."
 sudo chown "$USER:$USER" /etc/kolla/passwords.yml
 kolla-genpwd || true
 
-# ===============================
-# AUTODETECCIÓN DE SUBNET LOCAL
-# ===============================
-# Obtiene la subred detectando la IP local y quedándose con los 3 primeros octetos
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 SUBNET=$(echo "$LOCAL_IP" | awk -F. '{print $1"."$2"."$3}')
-
 START=10
-END=200 # rango ampliado para mayor robustez
+END=200
 VIP=""
 
 echo "🔹 Subred detectada automáticamente: $SUBNET.0/24"
-
-echo "🔹 Buscando IP libre para VIP..."
 for i in $(seq $START $END); do
-IP="$SUBNET.$i"
-if ! ping -c 1 -W 1 "$IP" &>/dev/null; then
-VIP="$IP"
-echo "[✔] IP libre encontrada: $VIP"
-break
-fi
+    IP="$SUBNET.$i"
+    if ! ping -c 1 -W 1 "$IP" &>/dev/null; then
+        VIP="$IP"
+        echo "[✔] IP libre encontrada: $VIP"
+        break
+    fi
 done
 
-[ -z "$VIP" ] && { echo "❌ No se encontró IP libre en la subred $SUBNET.0/24"; exit 1; }
+[ -z "$VIP" ] && { echo "❌ No se encontró IP libre"; exit 1; }
 
-# ===============================
-# AUTODETECCIÓN DE INTERFAZ DE SALIDA
-# ===============================
 DEFAULT_IFACE=$(ip route get 8.8.8.8 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++){ if($i=="dev") print $(i+1)}}' | head -n1)
+[ -z "$DEFAULT_IFACE" ] && DEFAULT_IFACE=$(ip route | awk '/default/ {print $5; exit}')
 
-# Fallback por si no detecta
-if [ -z "$DEFAULT_IFACE" ]; then
-DEFAULT_IFACE=$(ip route | awk '/default/ {print $5; exit}')
-fi
+echo "[+] Interfaz predeterminada detectada: $DEFAULT_IFACE"
 
-echo "🔹 Interfaz predeterminada detectada: $DEFAULT_IFACE"
-
-# ===============================
-# ESCRITURA AUTOMÁTICA DE globals.yml
-# ===============================
+[ -f /etc/kolla/globals.yml ] && sudo cp /etc/kolla/globals.yml /etc/kolla/globals.yml.bak
 sudo tee /etc/kolla/globals.yml > /dev/null <<EOF
 kolla_base_distro: "ubuntu"
 network_interface: "$DEFAULT_IFACE"
@@ -239,9 +231,8 @@ neutron_external_interface: "veth1"
 kolla_internal_vip_address: "$VIP"
 EOF
 
-echo "[✔] globals.yml generado automáticamente con éxito."
-
 sudo chown "$USER:$USER" /etc/kolla/globals.yml
+echo "[✔] globals.yml generado automáticamente con éxito."
 
 export PATH="$VENV_PATH/bin:$PATH"
 
@@ -257,9 +248,10 @@ ansible-galaxy collection install \
   community.docker \
   openstack.cloud --collections-path ~/.ansible/collections
 
-# Crear módulo modprobe (faltante en posix>=2.x)
-mkdir -p ~/.ansible/collections/ansible_collections/ansible/posix/plugins/modules/
-cat << 'EOF' > ~/.ansible/collections/ansible_collections/ansible/posix/plugins/modules/modprobe.py
+MODPROBE_FILE=~/.ansible/collections/ansible_collections/ansible/posix/plugins/modules/modprobe.py
+if [ ! -f "$MODPROBE_FILE" ]; then
+mkdir -p "$(dirname "$MODPROBE_FILE")"
+cat << 'EOF' > "$MODPROBE_FILE"
 #!/usr/bin/python
 from ansible.module_utils.basic import AnsibleModule
 import subprocess
@@ -279,8 +271,9 @@ def main():
 if __name__ == '__main__':
     main()
 EOF
+chmod +x "$MODPROBE_FILE"
+fi
 
-chmod +x ~/.ansible/collections/ansible_collections/ansible/posix/plugins/modules/modprobe.py
 echo "[✔] Colecciones Ansible y fix de modprobe configurados."
 
 # ============================================================
@@ -292,8 +285,7 @@ kolla-ansible prechecks -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible deploy -i /etc/kolla/ansible/inventory/all-in-one
 kolla-ansible post-deploy
 
-# CAMBIAR DE PERMISOS EL ENTORNO AL USUARIO LOCAL
-sudo chown -R nics:nics ~/nics-cyberlab-A/openstack-installer/openstack_venv
+sudo chown -R "$USER:$USER" "$VENV_PATH"
 
 # ============================================================
 # 9️⃣ CLIENTE OPENSTACK Y PERMISOS
@@ -301,7 +293,6 @@ sudo chown -R nics:nics ~/nics-cyberlab-A/openstack-installer/openstack_venv
 echo "🔹 Instalando cliente OpenStack..."
 pip install python-openstackclient -c https://releases.openstack.org/constraints/upper/master
 
-# Permisos de seguridad
 sudo chown -R root:root /etc/kolla
 sudo chmod -R 640 /etc/kolla/*.yml
 
@@ -314,4 +305,3 @@ echo "[✔] OpenStack desplegado correctamente con Kolla-Ansible. Ejecute:"
 echo "[➜] openstack project list"
 echo "-------------------------------------------------------------------"
 echo "[⏱] Tiempo total de instalación: ${MIN} minutos y ${SEC} segundos."
-

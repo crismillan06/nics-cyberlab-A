@@ -21,7 +21,7 @@ echo "             Debian 12 + Snort 3             "
 echo "============================================="
 
 # ===== Activar entorno virtual =====
-echo "[+] Activando entorno virtual de OpenStack..."
+echo "🔹 Activando entorno virtual de OpenStack..."
 step_start=$(date +%s)
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
@@ -69,7 +69,7 @@ KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
 # =========================
 # VERIFICACIÓN DE RECURSOS
 # =========================
-echo "[+] Verificando recursos necesarios..."
+echo "🔹 Verificando recursos necesarios..."
 
 if ! openstack image list -f value -c Name | grep -qw "$IMAGE_NAME"; then
     echo "[!] Falta la imagen '$IMAGE_NAME'. Ejecuta openstack-recursos.sh"; exit 1
@@ -109,7 +109,7 @@ EXISTING=$(openstack server list -f value -c Name | grep -w "$INSTANCE_NAME")
 if [[ -n "$EXISTING" ]]; then
     echo "[!] Existe una instancia '$INSTANCE_NAME'. Eliminando..."
     for s in $EXISTING; do openstack server delete "$s"; done
-    
+
     until ! openstack server list -f value -c Name | grep -qw "$INSTANCE_NAME"; do
         sleep 5
         echo -n "."
@@ -121,7 +121,7 @@ fi
 # =========================
 # CREACIÓN DE LA INSTANCIA
 # =========================
-echo "[+] Creando instancia '$INSTANCE_NAME'..."
+echo "🔹 Creando instancia '$INSTANCE_NAME'..."
 openstack server create \
   --image "$IMAGE_NAME" \
   --flavor "$FLAVOR" \

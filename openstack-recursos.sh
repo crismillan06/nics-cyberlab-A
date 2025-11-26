@@ -65,12 +65,12 @@ find_existing_external_net() {
   openstack network list --external -f value -c Name || return 1
 }
 
-echo "[*] Iniciando comprobación de recursos en OpenStack..."
+echo "🔹 Iniciando comprobación de recursos en OpenStack..."
 
 # ==============================================
 # FLAVORS
 # ==============================================
-echo "[*] Comprobando flavors..."
+echo "🔹 Comprobando flavors..."
 for flavor in "${!FLAVORS_DEF[@]}"; do
   if openstack flavor show "$flavor" &>/dev/null; then
     echo "[✔] Flavor existente: $flavor"
@@ -83,7 +83,7 @@ done
 # ===========
 # IMÁGENES
 # ===========
-echo "[*] Comprobando y creando imágenes (Ubuntu + Debian + Kali)..."
+echo "🔹 Comprobando y creando imágenes (Ubuntu + Debian + Kali)..."
 
 # Equivalente a la opción 5 del menú
 IMG_LIST=("ubuntu-22.04" "debian-12" "kali-linux")
@@ -151,7 +151,7 @@ done
 # ==============================================
 # RED EXTERNA
 # ==============================================
-echo "[*] Comprobando red externa..."
+echo "🔹 Comprobando red externa..."
 
 NETWORK_EXT_ID=""
 if openstack network show "$NETWORK_EXT_NAME" &>/dev/null; then
@@ -199,7 +199,7 @@ fi
 # ==============================================
 # RED PRIVADA + ROUTER
 # ==============================================
-echo "[*] Comprobando red privada..."
+echo "🔹 Comprobando red privada..."
 
 if openstack network show "$NETWORK_PRIV" &>/dev/null; then
   echo "[✔] Red privada existente: $NETWORK_PRIV"
@@ -226,7 +226,7 @@ else
   run_or_die openstack router create "$ROUTER_PRIV"
 fi
 
-echo "[*] Configurando gateway e interfaz del router..."
+echo "[+] Configurando gateway e interfaz del router..."
 if [ "$USE_EXTERNAL_NET" -eq 1 ]; then
   run_or_die openstack router set "$ROUTER_PRIV" --external-gateway "$NETWORK_EXT_ID"
 fi
@@ -237,7 +237,7 @@ openstack router add subnet "$ROUTER_PRIV" "$SUBNET_PRIV" 2>/dev/null || \
 # ==============================================
 # SECURITY GROUP
 # ==============================================
-echo "[*] Comprobando grupo de seguridad..."
+echo "🔹 Comprobando grupo de seguridad..."
 
 if openstack security group show "$SEC_GROUP" &>/dev/null; then
   echo "[✔] Grupo existente: $SEC_GROUP"
@@ -246,7 +246,7 @@ else
   run_or_die openstack security group create "$SEC_GROUP"
 fi
 
-echo "[*] Configurando reglas de seguridad..."
+echo "[+] Configurando reglas de seguridad..."
 
 for port in "${RULES_TCP[@]}"; do
   if ! openstack security group rule list "$SEC_GROUP" -f value \
@@ -269,7 +269,7 @@ fi
 # ==============================================
 # KEYPAIR
 # ==============================================
-echo "[*] Comprobando keypair..."
+echo "🔹 Comprobando keypair..."
 
 if openstack keypair show "$KEYPAIR" &>/dev/null; then
     echo "[✔] Keypair existente: $KEYPAIR"
@@ -294,9 +294,9 @@ EOF
 fi
 
 echo
-echo "[*] ✅ Comprobación y creación de recursos completada."
-echo "[*] Ejemplo para lanzar una instancia:"
-echo "    openstack server create \\"
+echo "[✔] Comprobación y creación de recursos completada."
+echo "Ejemplo para lanzar una instancia:"
+echo "[➜] openstack server create \\"
 echo "      --flavor T_1CPU_2GB \\"
 echo "      --image ubuntu-22.04 \\"
 echo "      --network $NETWORK_PRIV \\"

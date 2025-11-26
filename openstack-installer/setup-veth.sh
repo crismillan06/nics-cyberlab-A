@@ -16,7 +16,7 @@ detect_phys_iface() {
   echo "$dev"
 }
 
-echo "[+] Limpiando reglas anteriores de iptables..."
+echo "🔹 Limpiando reglas anteriores de iptables..."
 
 # ==== LIMPIEZA COMPLETA IPTABLES (filter y nat) ====
 iptables -F
@@ -27,7 +27,7 @@ iptables -t nat -F
 iptables -t nat -Z
 iptables -t nat -X
 
-echo "[+] Verificando si existen interfaces antiguas..."
+echo "🔹 Verificando si existen interfaces antiguas..."
 
 # Limpiar restos previos (idempotente)
 ip link del veth0 2>/dev/null || true
@@ -51,7 +51,7 @@ echo "[+] Asignando IP 10.0.2.1/24 al bridge..."
 ip addr add 10.0.2.1/24 dev uplinkbridge 2>/dev/null || ip addr replace 10.0.2.1/24 dev uplinkbridge
 
 # ==== ACTIVAR FORWARDING IPv4 ====
-echo "[+] Habilitando reenvío de paquetes IPv4..."
+echo "🔹 Habilitando reenvío de paquetes IPv4..."
 
 # Activación temporal
 sysctl -w net.ipv4.conf.all.forwarding=1 >/dev/null
