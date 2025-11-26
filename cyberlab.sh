@@ -54,16 +54,24 @@ sleep 1
 #Paso 2: Levantar infraestructura de la red
 echo "🔹 Construyendo reglas de iptables para el correcto funcionamiento de la red..."
 sudo bash openstack-installer/setup-veth.sh
+sleep 2
 
 # Paso 3: Generación de credenciales
 echo "🔹 Generando credenciales OpenStack..."
-step_start=$(date +%s)
 bash generate_app_cred_openrc_from_clouds.sh
-echo "[✔] Credenciales generadas correctamente en $(timer $step_start)"
+echo "[✔] Credenciales generadas correctamente"
+echo "-------------------------------------------"
+sleep 1
+
+# Paso 4: Cargando una configuración predeterminada en Openstack (gc, sabores, imagenes, redes, etc)
+echo "🔹 Creando una configuración predeterminada de parámetros para OpenStack..."
+step_start=$(date +%s)
+sudo bash openstack-recursos.sh
+echo "[✔] Configuración completada con éxito en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
 
-# Paso 4: Arranque del dashboard (en segundo plano)
+# Paso 5: Arranque del dashboard (en segundo plano)
 echo "🔹 Iniciando dashboard de NICS | CyberLab..."
 step_start=$(date +%s)
 
