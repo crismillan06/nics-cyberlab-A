@@ -20,8 +20,11 @@ El proyecto permite desplegar rápidamente la infraestructura base del laborator
   - [Red virtual persistente - topología creada](#red-virtual-persistente---topología-creada)
     - [Módulo opcional: **OpenStack + Snort 3 (PoC)**](#módulo-opcional-openstack--snort-3-poc)
     - [Ejecución:](#ejecución-1)
-  - [Verificación del entorno](#verificación-del-entorno)
-    - [ℹ️ Notas y buenas prácticas](#ℹ️-notas-y-buenas-prácticas)
+  - [Notas resumen](#notas-resumen)
+      - [Ejecutar manualmente el entorno](#ejecutar-manualmente-el-entorno)
+      - [Acceder a OpenStack de forma manul](#acceder-a-openstack-de-forma-manul)
+      - [Levantar la infraestructra de la red](#levantar-la-infraestructra-de-la-red)
+    - [ℹ️ Buenas prácticas](#ℹ️-buenas-prácticas)
           - [© NICS LAB — NICS | CyberLab](#-nics-lab--nics--cyberlab)
 
 ---
@@ -93,9 +96,9 @@ Toda la salida del proceso se muestra en pantalla, y en caso de error se genera 
 Durante la instalación se configura una red virtual persistente utilizada por OpenStack como red de gestión y red externa.
 
 ```
-                ┌────────────┐          ┌──────────────┐
+                ┌────────────┐           ┌──────────────┐
                 │   ens33    │◀────────▶│   Internet   │
-                └────────────┘          └──────────────┘
+                └────────────┘           └──────────────┘
                         │
                   [ NAT / iptables ]
                         │
@@ -136,34 +139,40 @@ El script se encargará del proceso de instalación y mostrará el estado de cad
 
 ---
 
-## Notas
+## Notas resumen
 
-Tras ejecutar `cyberlab.sh`, puedes verificar:
+Tras ejecutar `cyberlab.sh`, dentro del directorio **nics-cyberlab-A**:
 
-**Activar entorno manualmente**
-
-```bash
-```
-
-**Puertos utilizados**
+#### Ejecutar manualmente el entorno
 
 ```bash
-sudo ss -tulnp
+source openstack-installer/openstack_venv/bin/activate
+source admin-openrc.sh
 ```
 
-**Logs del proyecto**
+#### Acceder a OpenStack de forma manul
 
 ```bash
-ls -lh *.log
+cat admin-openrc.sh # Fichero generado post ejecución de cyberlab.sh
 ```
 
-Si ejecutaste la PoC de OpenStack + Snort 3, consulta también:
+- ``auth_url`` ➜ Contiene la dirreción con la que está configurado OpenStack, por ejemplo: "http://192.168.5.14".
+- ``username`` ➜ **admin**.
+- ``password`` ➜ Este campo contiene la contraseña generada post instalación, por ejemplo: _570vu8Q1jeZHyaLvVWopdNUBxO7ptYuBXImxLcfZ_
+
+También se puede visualizar a través del directorio **/etc/kolla/clouds.yaml**.
 
 ```bash
-cat dashboard_log.log
+cat /etc/kolla/clouds.yaml
 ```
 
-### ℹ️  Buenas prácticas
+#### Levantar la infraestructra de la red
+
+```bash
+sudo bash openstack-installer/setup-veth.sh
+```
+
+### ℹ️ Buenas prácticas
 
 - Ejecuta siempre los scripts desde la raíz del repositorio.
 - No modifiques rutas internas a menos que sepas exactamente lo que haces.
