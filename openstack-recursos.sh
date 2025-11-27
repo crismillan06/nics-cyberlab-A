@@ -60,8 +60,7 @@ PRIV_GATEWAY_IP="192.168.100.1"
 
 ROUTER_PRIV="router_private_01"
 
-# Usar o no red externa
-USE_EXTERNAL_NET=1   # 1 = usar red externa, 0 = sin red externa
+USE_EXTERNAL_NET=1
 
 # Seguridad
 SEC_GROUP="sg_basic"
@@ -86,7 +85,6 @@ run_or_die() {
   "$@" || die "Error ejecutando: $*"
 }
 
-# Busca nombres de redes externas existentes
 find_existing_external_net() {
   openstack network list --external -f value -c Name || return 1
 }
@@ -106,12 +104,11 @@ for flavor in "${!FLAVORS_DEF[@]}"; do
   fi
 done
 
-# ===========
+# ==============================================
 # IMÁGENES
-# ===========
+# ==============================================
 echo "🔹 Comprobando y creando imágenes (Ubuntu + Debian + Kali)..."
 
-# Equivalente a la opción 5 del menú
 IMG_LIST=("ubuntu-22.04" "debian-12" "kali-linux")
 
 for img_name in "${IMG_LIST[@]}"; do
@@ -130,7 +127,6 @@ for img_name in "${IMG_LIST[@]}"; do
       fi
       IMG_FILE="$UBUNTU_IMG"
       ;;
-
     "debian-12")
       if [ ! -f "$DEBIAN_IMG" ]; then
         echo "[+] Descargando Debian 12..."
@@ -140,7 +136,6 @@ for img_name in "${IMG_LIST[@]}"; do
       fi
       IMG_FILE="$DEBIAN_IMG"
       ;;
-
     "kali-linux")
       if [ ! -f "$KALI_IMG_QCOW2" ]; then
         echo "[+] Descargando Kali Linux 2025.2..."
@@ -261,7 +256,7 @@ openstack router add subnet "$ROUTER_PRIV" "$SUBNET_PRIV" 2>/dev/null || \
   echo "[!] La interfaz ya estaba añadida."
 
 # ==============================================
-# SECURITY GROUP
+# SECURITY GROUP (BLOQUE MEJORADO)
 # ==============================================
 echo "🔹 Comprobando grupo de seguridad..."
 
@@ -274,22 +269,50 @@ fi
 
 echo "[+] Configurando reglas de seguridad..."
 
+# ===== Reglas TCP =====
 for port in "${RULES_TCP[@]}"; do
   if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port tcp$"; then
-    openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" &>/dev/null
+
+    echo "[+] Añadiendo regla TCP para puerto $port..."
+    if openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" &>/dev/null; then
+      echo "[✔] Regla TCP $port añadida correctamente."
+    else
+      echo "[✖] Error al añadir regla TCP $port."
+    fi
+
+  else
+    echo "[✔] Regla TCP ya existente para puerto $port."
   fi
 done
 
+# ===== Reglas UDP =====
 for port in "${RULES_UDP[@]}"; do
   if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port udp$"; then
-    openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" &>/dev/null
+
+    echo "[+] Añadiendo regla UDP para puerto $port..."
+    if openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" &>/dev/null; then
+      echo "[✔] Regla UDP $port añadida correctamente."
+    else
+      echo "[✖] Error al añadir regla UDP $port."
+    fi
+
+  else
+    echo "[✔] Regla UDP ya existente para puerto $port."
   fi
 done
 
+# ===== Reglas ICMP =====
 if ! openstack security group rule list "$SEC_GROUP" -f value -c Protocol | grep -q "^icmp$"; then
-  openstack security group rule create --proto icmp "$SEC_GROUP" &>/dev/null
+  echo "[+] Añadiendo regla ICMP..."
+  if openstack security group rule create --proto icmp "$SEC_GROUP" &>/dev/null; then
+    echo "[✔] Regla ICMP añadida correctamente."
+  else
+    echo "[✖] Error al añadir regla ICMP."
+  fi
+else
+  echo "[✔] Regla ICMP ya existente."
 fi
 
 # ==============================================
@@ -303,11 +326,11 @@ else
     echo "[+] Creando nuevo par de claves..."
     run_or_die ssh-keygen -t rsa -f "$KEYPAIR_PRIV_FILE" -N ""
     run_or_die openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR"
-    chmod 400 "$KEYPAIR_PRIV_FILE"
+    chmod 600 "$KEYPAIR_PRIV_FILE"
 fi
 
 # ==============================================
-# CLOUD-INIT PASSWORD FILE
+# CLOUD-INIT
 # ==============================================
 if [ ! -f "$PASS_FILE" ]; then
   echo "[+] Creando fichero cloud-init por defecto..."
