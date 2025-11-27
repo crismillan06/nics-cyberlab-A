@@ -5,7 +5,33 @@
 # para poder lanzar una instancia
 # ==============================================
 
-# --------- CONFIGURACIÓN BÁSICA -------------
+# --------- CONFIGURACIÓN BÁSICA ---------------
+
+# ===== Activar entorno virtual =====
+echo "🔹 Activando primero el entorno virtual de OpenStack..."
+step_start=$(date +%s)
+if [[ -d "openstack-installer/openstack_venv" ]]; then
+    source openstack-installer/openstack_venv/bin/activate
+    echo "[✔] Entorno virtual 'openstack_venv' activado correctamente."
+else
+    echo "[✖] No se encontró el entorno 'openstack_venv'. Ejecuta primero openstack-installer.sh"
+    exit 1
+fi
+step_end=$(date +%s)
+echo "-------------------------------------------"
+sleep 1
+
+# ===== Cargar variables de entorno OpenStack =====
+if [[ -f "admin-openrc.sh" ]]; then
+    echo "[+] Cargando variables del entorno OpenStack (admin-openrc.sh)..."
+    source admin-openrc.sh
+    echo "[✔] Variables cargadas correctamente."
+    echo "-------------------------------------------"
+    sleep 1
+else
+    echo "[✖] No se encontró 'admin-openrc.sh'."
+    exit 1
+fi
 
 # Flavors y sus recursos
 declare -A FLAVORS_DEF=(
@@ -65,7 +91,7 @@ find_existing_external_net() {
   openstack network list --external -f value -c Name || return 1
 }
 
-echo "🔹 Iniciando comprobacion de recursos en OpenStack..."
+echo "🔹 Iniciando comprobación de recursos en OpenStack..."
 
 # ==============================================
 # FLAVORS
