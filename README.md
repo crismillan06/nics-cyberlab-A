@@ -136,14 +136,13 @@ El script se encargará del proceso de instalación y mostrará el estado de cad
 
 ---
 
-## Verificación del entorno
+## Notas
 
 Tras ejecutar `cyberlab.sh`, puedes verificar:
 
-**Servicios instalados y activos**
+**Activar entorno manualmente**
 
 ```bash
-systemctl --type=service --state=running
 ```
 
 **Puertos utilizados**
@@ -164,7 +163,7 @@ Si ejecutaste la PoC de OpenStack + Snort 3, consulta también:
 cat dashboard_log.log
 ```
 
-### ℹ️ Notas y buenas prácticas
+### ℹ️  Buenas prácticas
 
 - Ejecuta siempre los scripts desde la raíz del repositorio.
 - No modifiques rutas internas a menos que sepas exactamente lo que haces.
