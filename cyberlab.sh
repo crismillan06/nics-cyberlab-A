@@ -42,6 +42,13 @@ fi
 echo "-------------------------------------------"
 sleep 2
 
+# Paso 2: Generación de credenciales
+echo "🔹 Generando credenciales OpenStack..."
+bash generate_app_cred_openrc_from_clouds.sh
+echo "[✔] Credenciales generadas correctamente"
+echo "-------------------------------------------"
+sleep 1
+
 # Cargar variables de entorno OpenStack
 if [[ -f "admin-openrc.sh" ]]; then
     echo "[+] Cargando variables del entorno OpenStack (admin-openrc.sh)..."
@@ -51,17 +58,10 @@ if [[ -f "admin-openrc.sh" ]]; then
 fi
 sleep 1
 
-#Paso 2: Levantar infraestructura de la red
+#Paso 3: Levantar infraestructura de la red
 echo "🔹 Construyendo reglas de iptables para el correcto funcionamiento de la red..."
 sudo bash openstack-installer/setup-veth.sh
 sleep 2
-
-# Paso 3: Generación de credenciales
-echo "🔹 Generando credenciales OpenStack..."
-bash generate_app_cred_openrc_from_clouds.sh
-echo "[✔] Credenciales generadas correctamente"
-echo "-------------------------------------------"
-sleep 1
 
 # Paso 4: Cargando una configuración predeterminada en Openstack (gc, sabores, imagenes, redes, etc)
 echo "🔹 Creando una configuración predeterminada de parámetros para OpenStack..."
