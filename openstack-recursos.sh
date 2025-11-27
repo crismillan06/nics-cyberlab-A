@@ -326,7 +326,7 @@ else
     echo "[+] Creando nuevo par de claves..."
     run_or_die ssh-keygen -t rsa -f "$KEYPAIR_PRIV_FILE" -N ""
     run_or_die openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR"
-    chmod 600 "$KEYPAIR_PRIV_FILE"
+    sudo chmod 600 "$KEYPAIR_PRIV_FILE"
 fi
 
 # ==============================================
