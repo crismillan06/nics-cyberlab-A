@@ -316,18 +316,42 @@ else
 fi
 
 # ==============================================
-# KEYPAIR
+# KEYPAIR (LIMPIAR Y GENERAR NUEVO)
 # ==============================================
-echo "🔹 Comprobando keypair..."
+echo "🔹 Gestionando keypair..."
 
+# Eliminar keypair existente en OpenStack
 if openstack keypair show "$KEYPAIR" &>/dev/null; then
-    echo "[✔] Keypair existente: $KEYPAIR"
-else
-    echo "[+] Creando nuevo par de claves..."
-    run_or_die ssh-keygen -t rsa -f "$KEYPAIR_PRIV_FILE" -N ""
-    run_or_die openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR"
-    sudo chmod 600 "$KEYPAIR_PRIV_FILE"
+    echo "[!] Keypair '$KEYPAIR' ya existe en OpenStack. Eliminando..."
+    openstack keypair delete "$KEYPAIR" \
+        || die "No se pudo eliminar el keypair existente en OpenStack"
 fi
+
+# Eliminar archivos locales si existen
+if [[ -f "$KEYPAIR" ]]; then
+    echo "[!] Eliminando clave privada local '$KEYPAIR'"
+    rm -f "$KEYPAIR"
+fi
+if [[ -f "${KEYPAIR}.pub" ]]; then
+    echo "[!] Eliminando clave pública local '${KEYPAIR}.pub'"
+    rm -f "${KEYPAIR}.pub"
+fi
+
+# Generar nuevo par de claves
+echo "[+] Generando nuevo par de claves para repo..."
+ssh-keygen -t rsa -b 4096 -f "$KEYPAIR" -N "" -C "key for OpenStack" \
+    || die "No se pudo generar el keypair"
+
+# Ajustar permisos
+chmod 600 "$KEYPAIR"
+chmod 644 "${KEYPAIR}.pub"
+
+# Crear keypair en OpenStack usando la clave pública
+openstack keypair create --public-key "${KEYPAIR}.pub" "$KEYPAIR" \
+    || die "No se pudo registrar el keypair en OpenStack"
+
+echo "[✔] Keypair '$KEYPAIR' generado y registrado correctamente."
+
 
 # ==============================================
 # CLOUD-INIT
