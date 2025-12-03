@@ -66,7 +66,7 @@ sleep 2
 # Paso 4: Cargando una configuración predeterminada en Openstack (gc, sabores, imagenes, redes, etc)
 echo "🔹 Creando una configuración predeterminada de parámetros para OpenStack..."
 step_start=$(date +%s)
-sudo bash openstack-recursos.sh
+bash openstack-recursos.sh
 echo "[✔] Configuración completada con éxito en $(timer $step_start)"
 echo "-------------------------------------------"
 sleep 2
