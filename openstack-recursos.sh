@@ -256,7 +256,7 @@ openstack router add subnet "$ROUTER_PRIV" "$SUBNET_PRIV" 2>/dev/null || \
   echo "[!] La interfaz ya estaba añadida."
 
 # ==============================================
-# SECURITY GROUP (BLOQUE MEJORADO)
+# SECURITY GROUP
 # ==============================================
 echo "🔹 Comprobando grupo de seguridad..."
 
@@ -316,9 +316,9 @@ else
 fi
 
 # ==============================================
-# KEYPAIR (LIMPIAR Y GENERAR NUEVO)
+# KEYPAIR
 # ==============================================
-echo "🔹 Gestionando keypair..."
+echo "🔹 Gestionando keypair (.pem)..."
 
 # Eliminar keypair existente en OpenStack
 if openstack keypair show "$KEYPAIR" &>/dev/null; then
@@ -328,30 +328,30 @@ if openstack keypair show "$KEYPAIR" &>/dev/null; then
 fi
 
 # Eliminar archivos locales si existen
-if [[ -f "$KEYPAIR" ]]; then
-    echo "[!] Eliminando clave privada local '$KEYPAIR'"
-    rm -f "$KEYPAIR"
+if [[ -f "$KEYPAIR_PRIV_FILE" ]]; then
+    echo "[!] Eliminando clave privada local '$KEYPAIR_PRIV_FILE'"
+    rm -f "$KEYPAIR_PRIV_FILE"
 fi
-if [[ -f "${KEYPAIR}.pub" ]]; then
-    echo "[!] Eliminando clave pública local '${KEYPAIR}.pub'"
-    rm -f "${KEYPAIR}.pub"
+if [[ -f "$KEYPAIR_PUB_FILE" ]]; then
+    echo "[!] Eliminando clave pública local '$KEYPAIR_PUB_FILE'"
+    rm -f "$KEYPAIR_PUB_FILE"
 fi
 
-# Generar nuevo par de claves
-echo "[+] Generando nuevo par de claves para repo..."
-ssh-keygen -t rsa -b 4096 -f "$KEYPAIR" -N "" -C "key for OpenStack" \
+# Generar nuevo par de claves en formato PEM
+echo "[+] Generando nuevo par de claves (.pem) para repo..."
+ssh-keygen -t rsa -b 4096 -m PEM \
+    -f "$KEYPAIR_PRIV_FILE" -N "" -C "key for OpenStack" \
     || die "No se pudo generar el keypair"
 
 # Ajustar permisos
-chmod 600 "$KEYPAIR"
-chmod 644 "${KEYPAIR}.pub"
+chmod 400 "$KEYPAIR_PRIV_FILE"
+chmod 644 "$KEYPAIR_PUB_FILE"
 
-# Crear keypair en OpenStack usando la clave pública
-openstack keypair create --public-key "${KEYPAIR}.pub" "$KEYPAIR" \
+# Registrar keypair en OpenStack usando la clave pública PEM
+openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR" \
     || die "No se pudo registrar el keypair en OpenStack"
 
-echo "[✔] Keypair '$KEYPAIR' generado y registrado correctamente."
-
+echo "[✔] Keypair '$KEYPAIR' generado (.pem) y registrado correctamente."
 
 # ==============================================
 # CLOUD-INIT
