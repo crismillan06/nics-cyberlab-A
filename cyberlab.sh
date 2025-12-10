@@ -3,116 +3,150 @@
 # Script de despliegue automático de NICS | CyberLab
 # ==================================================
 
-set -e  # Detener el script ante cualquier error
+set -e
 
-# Función para medir el tiempo de ejecución de cada tarea
-function timer() {
+# ======================================
+# SECCIÓN DE CONFIGURACION DE LOS LOGS
+# ======================================
+BASE_DIR="$(pwd)"
+LOG_DIR="${BASE_DIR}/log"
+LOG_FILE="${LOG_DIR}/cyberlab.log"
+
+mkdir -p "${LOG_DIR}"
+
+if [[ -f "${LOG_FILE}" ]]; then
+    mv "${LOG_FILE}" "${LOG_FILE}-$(date +%Y%m%d-%H%M).bak"
+fi
+
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+exec 3>>"${LOG_FILE}"
+
+# ===========================
+# FUNCIONES
+# ===========================
+timer() {
     local start_time=$1
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
     printf "%02d min %02d seg\n" $((duration / 60)) $((duration % 60))
 }
 
-# Marca de inicio general
+log_block() {
+    echo "" >&3
+    echo "============================================================" >&3
+    echo "$1" >&3
+    echo "$(date '+%Y-%m-%d | %H:%M:%S')" >&3
+    echo "============================================================" >&3
+    echo "" >&3
+}
+
 overall_start=$(date +%s)
 
-echo "============================================="
+log_block "INICIO DEL DESPLIEGUE DE NICS | CyberLab"
 echo "🚀 Iniciando despliegue de NICS | CyberLab..."
-echo "============================================="
-sleep 1
 
-# Paso 1: Instalación de OpenStack
-echo "🔹 Iniciando instalador de OpenStack..."
+# ===========================
+# PASO 1
+# ===========================
+log_block "PASO 1 | Instalación de OpenStack"
 step_start=$(date +%s)
-bash openstack-installer/openstack-installer.sh
-echo "[✔] Instalación de OpenStack completada en $(timer $step_start)"
-echo "-------------------------------------------"
-sleep 2
 
-# ===== Activar entorno virtual =====
-echo "🔹 Activando entorno virtual de OpenStack..."
+bash openstack-installer/openstack-installer.sh  
+
+echo "[✔] Instalación completada en: $(timer $step_start)"
+echo "------------------------------------------------------------"
+
+# ===========================
+# PASO 2
+# ===========================
+log_block "PASO 2 | Activación entorno virtual OpenStack"
 step_start=$(date +%s)
+
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
-    echo "[✔] Entorno virtual 'openstack_venv' activado correctamente."
+    echo "[✔] Entorno activado correctamente."
 else
     echo "[✖] No se encontró el entorno 'openstack_venv'."
     exit 1
 fi
-echo "-------------------------------------------"
-sleep 2
 
-# Paso 2: Generación de credenciales
-echo "🔹 Generando credenciales OpenStack..."
-bash generate_app_cred_openrc_from_clouds.sh
-echo "[✔] Credenciales generadas correctamente"
-echo "-------------------------------------------"
-sleep 1
+echo "Tiempo: $(timer $step_start)"
+echo "------------------------------------------------------------"
 
-# Cargar variables de entorno OpenStack
+# ===========================
+# PASO 3
+# ===========================
+log_block "PASO 3 | Generación de credenciales"
+step_start=$(date +%s)
+
+bash generate_admin-openrc.sh
+echo "[✔] Credenciales generadas."
+
 if [[ -f "admin-openrc.sh" ]]; then
-    echo "[+] Cargando variables del entorno OpenStack (admin-openrc.sh)..."
     source admin-openrc.sh
-    echo "[✔] Variables cargadas correctamente."
-    echo "-------------------------------------------"
+    echo "[✔] admin-openrc cargado."
 fi
-sleep 1
 
-#Paso 3: Levantar infraestructura de la red
-echo "🔹 Construyendo reglas de iptables para el correcto funcionamiento de la red..."
-sudo bash openstack-installer/setup-veth.sh
-sleep 2
+echo "Tiempo: $(timer $step_start)"
+echo "------------------------------------------------------------"
 
-# Paso 4: Cargando una configuración predeterminada en Openstack (gc, sabores, imagenes, redes, etc)
-echo "🔹 Creando una configuración predeterminada de parámetros para OpenStack..."
+# ===========================
+# PASO 4
+# ===========================
+log_block "PASO 4 | Reglas de red / iptables"
+sudo bash openstack-installer/setup-veth.sh  
+echo "[✔] Reglas aplicadas."
+echo "------------------------------------------------------------"
+
+# ===========================
+# PASO 5
+# ===========================
+log_block "PASO 5 | Configuración inicial OpenStack"
 step_start=$(date +%s)
-bash openstack-recursos.sh
-echo "[✔] Configuración completada con éxito en $(timer $step_start)"
-echo "-------------------------------------------"
-sleep 2
 
-# Paso 5: Arranque del dashboard (en segundo plano)
-echo "🔹 Iniciando dashboard de NICS | CyberLab..."
+bash openstack-recursos.sh  
+echo "[✔] Configuración completada en: $(timer $step_start)"
+echo "------------------------------------------------------------"
+
+# ===========================
+# PASO 6
+# ===========================
+log_block "PASO 6 | Arrancando Dashboard"
 step_start=$(date +%s)
 
-# Se lanza el dashboard en segundo plano y guardamos el PID
-bash start_dashboard.sh > dashboard_log.log 2>&1 &
+DASH_LOG="${LOG_DIR}/dashboard.log"
+
+bash start_dashboard.sh > "${DASH_LOG}" 2>&1 & 
 DASH_PID=$!
 
-sleep 5  # espera para que el servicio levante
-echo "[✔] Dashboard iniciado en $(timer $step_start)"
-echo "-------------------------------------------"
-sleep 1
-
-# Información del proceso
-echo
 echo "Accede al dashboard desde tu navegador:"
-echo "👉 http://localhost:5001"
+echo "[➜] http://localhost:5001"
 echo
-echo "⚙️  El dashboard se está ejecutando en segundo plano."
-echo "PID del proceso: $DASH_PID"
-echo "Para detenerlo, ejecuta el siguiente comando:"
+echo "[⚙️] Ejecutándose en segundo plano (PID: $DASH_PID)"
+echo "Para detenerlo:"
 echo "[!] kill $DASH_PID"
 echo
-echo "Log en tiempo real: tail -f dashboard_log.log"
-echo "============================================="
+echo "[📜] Log del dashboard: tail -f ${DASH_LOG}"
+echo "------------------------------------------------------------"
 
-# Extraer valores desde clouds.yaml
+# ===========================
+# INFO ACCESO
+# ===========================
+log_block "PARÁMETROS DE ACCESO"
+
 AUTH_URL=$(grep -m1 "auth_url:" /etc/kolla/clouds.yaml | awk '{print $2}' | sed 's/:5000//')
 USERNAME=$(grep -m1 "username:" /etc/kolla/clouds.yaml | awk '{print $2}')
 PASSWORD=$(grep -m1 "password:" /etc/kolla/clouds.yaml | awk '{print $2}')
 
-echo "Si quiere acceder manualmente al dashboard de OpenStack:"
-echo "[➜] URL del Dashboard:   ${AUTH_URL}"
-echo "[➜] Usuario:             ${USERNAME}"
-echo "[➜] Contraseña:          ${PASSWORD}"
-echo "----------------------------------------------------------"
-echo "A continuación se desactivará el entorno, si quiere activarlo manualmente ejecute en el siguiente orden:"
-echo "[➜] source openstack-installer/openstack_venv/bin/activate"
-echo "[➜] source admin-openrc.sh"
-echo "----------------------------------------------------------"
+echo "Dashboard: ${AUTH_URL}"
+echo "Usuario:   ${USERNAME}"
+echo "Password:  ${PASSWORD}"
+echo "------------------------------------------------------------"
 
-# Desactivar entorno al salir del script
 deactivate 2>/dev/null || true
 
+log_block "FIN DEL PROCESO"
+
 echo "[⏱] Tiempo total de despliegue: $(timer $overall_start)"
+echo "[📜] Log completo registrado en: ${LOG_FILE}"

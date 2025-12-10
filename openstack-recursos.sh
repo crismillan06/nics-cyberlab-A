@@ -33,6 +33,19 @@ else
     exit 1
 fi
 
+# ===== Carpeta IMG para descargas =====
+IMG_DIR="img"
+
+echo "🔹 Verificando carpeta para imágenes..."
+if [[ ! -d "$IMG_DIR" ]]; then
+    mkdir -p "$IMG_DIR"
+    echo "[✔] Carpeta creada: $IMG_DIR"
+else
+    echo "[✔] Carpeta ya existente: $IMG_DIR"
+fi
+echo "-------------------------------------------"
+sleep 1
+
 # Flavors y sus recursos
 declare -A FLAVORS_DEF=(
   [T_1CPU_2GB]="--ram 2048  --vcpus 1 --disk 20"
@@ -41,11 +54,12 @@ declare -A FLAVORS_DEF=(
   [L_6CPU_12GB]="--ram 12288 --vcpus 6 --disk 120"
 )
 
-# Imágenes locales
-UBUNTU_IMG="ubuntu-22.04.5-jammy.qcow2"
-DEBIAN_IMG="debian-12-generic.qcow2"
-KALI_IMG_RAW="disk.raw"
-KALI_IMG_QCOW2="kali-linux-2025.2.qcow2"
+# Imágenes (ubicadas en img/)
+UBUNTU_IMG="${IMG_DIR}/ubuntu-22.04.5-jammy.qcow2"
+DEBIAN_IMG="${IMG_DIR}/debian-12-generic.qcow2"
+KALI_IMG_RAW="${IMG_DIR}/disk.raw"
+KALI_IMG_QCOW2="${IMG_DIR}/kali-linux-2025.2.qcow2"
+KALI_TAR="${IMG_DIR}/kali-linux-2025.2-cloud-genericcloud-amd64.tar.xz"
 
 # Redes
 NETWORK_EXT_NAME="net_external_01"
@@ -141,18 +155,14 @@ for img_name in "${IMG_LIST[@]}"; do
         echo "[+] Descargando Kali Linux 2025.2..."
         run_or_die wget -c \
           https://kali.download/cloud-images/kali-2025.2/kali-linux-2025.2-cloud-genericcloud-amd64.tar.xz \
-          -O kali-linux-2025.2-cloud-genericcloud-amd64.tar.xz
+          -O "$KALI_TAR"
 
         echo "[+] Extrayendo disk.raw..."
-        run_or_die tar -xvf kali-linux-2025.2-cloud-genericcloud-amd64.tar.xz
+        run_or_die tar -xvf "$KALI_TAR" -C "$IMG_DIR"
 
         if ! command -v qemu-img &>/dev/null; then
           echo "[!] 'qemu-img' no está instalado. Instalando..."
-          if [ "$(id -u)" -ne 0 ]; then
-            sudo apt update && sudo apt install -y qemu-utils
-          else
-            apt update && apt install -y qemu-utils
-          fi
+          sudo apt update && sudo apt install -y qemu-utils
         fi
 
         echo "[+] Convirtiendo disk.raw a QCOW2..."
@@ -269,50 +279,25 @@ fi
 
 echo "[+] Configurando reglas de seguridad..."
 
-# ===== Reglas TCP =====
 for port in "${RULES_TCP[@]}"; do
   if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port tcp$"; then
-
     echo "[+] Añadiendo regla TCP para puerto $port..."
-    if openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" &>/dev/null; then
-      echo "[✔] Regla TCP $port añadida correctamente."
-    else
-      echo "[✖] Error al añadir regla TCP $port."
-    fi
-
-  else
-    echo "[✔] Regla TCP ya existente para puerto $port."
+    openstack security group rule create --proto tcp --dst-port "$port" "$SEC_GROUP" &>/dev/null
   fi
 done
 
-# ===== Reglas UDP =====
 for port in "${RULES_UDP[@]}"; do
   if ! openstack security group rule list "$SEC_GROUP" -f value \
       -c "Port Range" -c Protocol | grep -q "^$port:$port udp$"; then
-
     echo "[+] Añadiendo regla UDP para puerto $port..."
-    if openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" &>/dev/null; then
-      echo "[✔] Regla UDP $port añadida correctamente."
-    else
-      echo "[✖] Error al añadir regla UDP $port."
-    fi
-
-  else
-    echo "[✔] Regla UDP ya existente para puerto $port."
+    openstack security group rule create --proto udp --dst-port "$port" "$SEC_GROUP" &>/dev/null
   fi
 done
 
-# ===== Reglas ICMP =====
 if ! openstack security group rule list "$SEC_GROUP" -f value -c Protocol | grep -q "^icmp$"; then
   echo "[+] Añadiendo regla ICMP..."
-  if openstack security group rule create --proto icmp "$SEC_GROUP" &>/dev/null; then
-    echo "[✔] Regla ICMP añadida correctamente."
-  else
-    echo "[✖] Error al añadir regla ICMP."
-  fi
-else
-  echo "[✔] Regla ICMP ya existente."
+  openstack security group rule create --proto icmp "$SEC_GROUP" &>/dev/null
 fi
 
 # ==============================================
@@ -320,38 +305,22 @@ fi
 # ==============================================
 echo "🔹 Gestionando keypair (.pem)..."
 
-# Eliminar keypair existente en OpenStack
 if openstack keypair show "$KEYPAIR" &>/dev/null; then
-    echo "[!] Keypair '$KEYPAIR' ya existe en OpenStack. Eliminando..."
-    openstack keypair delete "$KEYPAIR" \
-        || die "No se pudo eliminar el keypair existente en OpenStack"
+    echo "[!] Keypair '$KEYPAIR' ya existe. Eliminando..."
+    openstack keypair delete "$KEYPAIR"
 fi
 
-# Eliminar archivos locales si existen
-if [[ -f "$KEYPAIR_PRIV_FILE" ]]; then
-    echo "[!] Eliminando clave privada local '$KEYPAIR_PRIV_FILE'"
-    rm -f "$KEYPAIR_PRIV_FILE"
-fi
-if [[ -f "$KEYPAIR_PUB_FILE" ]]; then
-    echo "[!] Eliminando clave pública local '$KEYPAIR_PUB_FILE'"
-    rm -f "$KEYPAIR_PUB_FILE"
-fi
+if [[ -f "$KEYPAIR_PRIV_FILE" ]]; then rm -f "$KEYPAIR_PRIV_FILE"; fi
+if [[ -f "$KEYPAIR_PUB_FILE" ]]; then rm -f "$KEYPAIR_PUB_FILE"; fi
 
-# Generar nuevo par de claves en formato PEM
-echo "[+] Generando nuevo par de claves (.pem) para repo..."
+echo "[+] Generando nuevo par de claves..."
 ssh-keygen -t rsa -b 4096 -m PEM \
-    -f "$KEYPAIR_PRIV_FILE" -N "" -C "key for OpenStack" \
-    || die "No se pudo generar el keypair"
+    -f "$KEYPAIR_PRIV_FILE" -N "" -C "key for OpenStack"
 
-# Ajustar permisos
 chmod 400 "$KEYPAIR_PRIV_FILE"
 chmod 644 "$KEYPAIR_PUB_FILE"
 
-# Registrar keypair en OpenStack usando la clave pública PEM
-openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR" \
-    || die "No se pudo registrar el keypair en OpenStack"
-
-echo "[✔] Keypair '$KEYPAIR' generado (.pem) y registrado correctamente."
+openstack keypair create --public-key "$KEYPAIR_PUB_FILE" "$KEYPAIR"
 
 # ==============================================
 # CLOUD-INIT
