@@ -61,7 +61,6 @@ echo "------------------------------------------------------------"
 # PASO 2
 # ===========================
 log_block "PASO 2 | Activación entorno virtual OpenStack"
-step_start=$(date +%s)
 
 if [[ -d "openstack-installer/openstack_venv" ]]; then
     source openstack-installer/openstack_venv/bin/activate
@@ -71,14 +70,10 @@ else
     exit 1
 fi
 
-echo "Tiempo: $(timer $step_start)"
-echo "------------------------------------------------------------"
-
 # ===========================
 # PASO 3
 # ===========================
 log_block "PASO 3 | Generación de credenciales"
-step_start=$(date +%s)
 
 bash generate_admin-openrc.sh
 echo "[✔] Credenciales generadas."
@@ -87,9 +82,6 @@ if [[ -f "admin-openrc.sh" ]]; then
     source admin-openrc.sh
     echo "[✔] admin-openrc cargado."
 fi
-
-echo "Tiempo: $(timer $step_start)"
-echo "------------------------------------------------------------"
 
 # ===========================
 # PASO 4

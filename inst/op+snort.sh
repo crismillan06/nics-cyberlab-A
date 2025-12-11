@@ -152,7 +152,7 @@ openstack server add floating ip "$INSTANCE_NAME" "$FLOATING_IP"
 # =========================
 # ESPERA SSH (1 MINUTO)
 # =========================
-echo "[+] Esperando conexión SSH (timeout 1 min)..."
+echo "[+] Esperando conexión SSH (Puede tardar un momentito)..."
 SSH_TIMEOUT=60
 SSH_START=$(date +%s)
 
