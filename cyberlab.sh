@@ -52,7 +52,7 @@ echo "🚀 Iniciando despliegue de NICS | CyberLab..."
 log_block "PASO 1 | Instalación de OpenStack"
 step_start=$(date +%s)
 
-bash openstack-installer/openstack-installer.sh  
+bash openstack-installer/openstack-installer.sh
 
 echo "[✔] Instalación completada en: $(timer $step_start)"
 echo "------------------------------------------------------------"
@@ -87,7 +87,7 @@ fi
 # PASO 4
 # ===========================
 log_block "PASO 4 | Reglas de red / iptables"
-sudo bash openstack-installer/setup-veth.sh  
+sudo bash openstack-installer/uplinkbridge.sh
 echo "[✔] Reglas aplicadas."
 echo "------------------------------------------------------------"
 
@@ -97,7 +97,7 @@ echo "------------------------------------------------------------"
 log_block "PASO 5 | Configuración inicial OpenStack"
 step_start=$(date +%s)
 
-bash openstack-recursos.sh  
+bash openstack-recursos.sh
 echo "[✔] Configuración completada en: $(timer $step_start)"
 echo "------------------------------------------------------------"
 
