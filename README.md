@@ -179,6 +179,13 @@ sudo bash openstack-installer/setup-veth.sh
 - Guarda los logs generados para depuración si ocurre algún error inesperado.
 - Esta versión es experimental: algunas funcionalidades pueden cambiar en futuras actualizaciones.
 
+<details>
+  <summary>Mostrar información censurada</summary>
+
+  Contenido oculto: 1234-5678
+</details>
+
+
 ---
 
 ###### © NICS LAB — NICS | CyberLab
